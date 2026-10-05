@@ -16,9 +16,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
   const [role, setRole] = useState<Role>('CRP');
-  const [district, setDistrict] = useState('पुणे (Pune)');
-  const [blockName, setBlockName] = useState('हवेली (Haveli)');
-  const [villageName, setVillageName] = useState('खेड शिवापूर (Khed Shivapur)');
+  const [district, setDistrict] = useState('लातूर (LATUR)');
+  const [blockName, setBlockName] = useState('जळकोट (JALKOT)');
+  const [villageName, setVillageName] = useState('अतनूर (ATNUR)');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -77,9 +77,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         marathiName: `${fullName} (${role === 'CRP' ? 'समूह सखी' : role === 'BLOCK_MANAGER' ? 'प्रखंड व्यवस्थापक' : 'प्रशासक'})`,
         mobile: mobile.trim(),
         role: role,
-        blockId: 'blk_haveli',
+        blockId: 'JALKOT',
         blockName: blockName,
-        assignedVillageIds: ['vlg_khed_shivapur'],
+        assignedVillageIds: ['ATNUR'],
         avatar: role === 'CRP' ? '👩🏽‍💼' : role === 'BLOCK_MANAGER' ? '👨🏽‍💼' : '🏛️'
       };
 
@@ -121,7 +121,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
           {/* Header */}
           <div className="text-center space-y-1">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-black text-2xl flex items-center justify-center mx-auto shadow-md border border-emerald-200">
-              स
+
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight pt-1">
               नवीन खाते नोंदणी (Registration)
@@ -149,7 +149,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="उदा. सुनिता प्रकाश गायकवाड"
+                  placeholder="उदा. नागिन संग्राम मठदेवरू"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -165,7 +165,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   type="tel"
                   required
                   maxLength={10}
-                  placeholder="उदा. 9822104567"
+                  placeholder="उदा. 9022731301"
                   value={mobile}
                   onChange={e => setMobile(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"

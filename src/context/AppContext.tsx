@@ -1,10 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import {
   User,
   Role,
+  District,
   Block,
+  BlockManagerProfile,
+  CRPPerformanceSummary,
+  LoginSession,
   Village,
   SHG,
   Member,
@@ -22,7 +26,9 @@ import {
   AuditLog
 } from '@/types';
 import {
+  INITIAL_DISTRICTS,
   INITIAL_USERS,
+  INITIAL_BLOCK_MANAGERS,
   INITIAL_BLOCKS,
   INITIAL_VILLAGES,
   INITIAL_SHGS,
@@ -40,6 +46,7 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_AUDIT_LOGS
 } from '@/lib/seed-data';
+import { DEFAULT_DEMO_HASHES, hashPassword } from '@/lib/auth-crypto';
 import { speakMarathi } from '@/lib/voice-assistant';
 
 interface AppContextType {
@@ -53,7 +60,10 @@ interface AppContextType {
   syncOfflineData: () => void;
 
   // Data Collections
+  districts: District[];
   users: User[];
+  blockManagers: BlockManagerProfile[];
+  loginSessions: LoginSession[];
   blocks: Block[];
   villages: Village[];
   shgs: SHG[];
@@ -70,6 +80,15 @@ interface AppContextType {
   tasks: TaskReminder[];
   notifications: NotificationItem[];
   auditLogs: AuditLog[];
+
+  // Role-Aware Data Isolation Accessors
+  filteredSHGs: SHG[];
+  filteredMembers: Member[];
+  filteredSavings: SavingsRecord[];
+  filteredLoans: LoanRecord[];
+  filteredMeetings: Meeting[];
+  filteredFieldVisits: FieldVisit[];
+  filteredTasks: TaskReminder[];
 
   // Active Selected Entity for detail views
   selectedShgId: string | null;
@@ -122,6 +141,54 @@ interface AppContextType {
   verifyDocument: (id: string, newStatus: DocumentItem['status'], remarks?: string) => void;
   deleteDocument: (id: string) => void;
 
+  // Admin Block Manager Management
+  addBlockManager: (bm: {
+    name: string;
+    marathiName: string;
+    mobile: string;
+    email?: string;
+    username?: string;
+    password?: string;
+    districtId: string;
+    districtName: string;
+    blockId: string;
+    blockName: string;
+    assignedArea: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+  }) => Promise<void>;
+  updateBlockManager: (userId: string, updates: Partial<BlockManagerProfile>) => void;
+  toggleBlockManagerStatus: (userId: string) => void;
+  resetBlockManagerPassword: (userId: string, newPassword?: string) => Promise<boolean>;
+  deleteBlockManager: (userId: string) => void;
+
+  // Block Manager CRP Management & Strict Access Control
+  addCRP: (crp: {
+    name: string;
+    marathiName: string;
+    mobile: string;
+    email?: string;
+    username?: string;
+    password?: string;
+    districtId?: string;
+    districtName?: string;
+    blockId?: string;
+    blockName?: string;
+    villageName?: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+  }) => Promise<void>;
+  updateCRP: (userId: string, updates: Partial<User>) => void;
+  toggleCRPStatus: (userId: string) => void;
+  resetCRPPassword: (userId: string, newPassword?: string) => Promise<boolean>;
+  deleteCRP: (userId: string) => void;
+
+  // Block Manager CRP Performance Summary & Activity Calculation
+  getCRPPerformanceSummaries: (targetBlockId?: string) => CRPPerformanceSummary[];
+  
+  // Activity Logging & Session Management
+  logActivity: (action: string, actionMarathi: string, entityType: string, entityId: string, details: string) => void;
+  recordUserLogin: (user: User) => void;
+  recordUserLogout: () => void;
+
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
   deleteNotification: (id: string) => void;
@@ -134,15 +201,40 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'sakhisetu_v2_data';
+const STORAGE_KEY = 'sakhisetu_v3_data';
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]); // CRP Sumitra Pawar by default
+  const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]); // CRP Nagin Mathdevaru by default
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
 
+  const [districts, setDistricts] = useState<District[]>(INITIAL_DISTRICTS);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [blockManagers, setBlockManagers] = useState<BlockManagerProfile[]>(INITIAL_BLOCK_MANAGERS);
+  const [loginSessions, setLoginSessions] = useState<LoginSession[]>([
+    {
+      sessionId: 'sess_crp_1',
+      userId: 'crp_nagin',
+      username: 'crp001',
+      role: 'CRP',
+      loginTime: '2026-10-06T01:30:00Z',
+      lastPingTime: '2026-10-06T01:48:00Z',
+      isActive: true,
+      deviceInfo: 'Android Chrome Mobile'
+    },
+    {
+      sessionId: 'sess_bm_1',
+      userId: 'bm_swami',
+      username: 'blockmanager001',
+      role: 'BLOCK_MANAGER',
+      loginTime: '2026-10-06T01:20:00Z',
+      lastPingTime: '2026-10-06T01:49:00Z',
+      isActive: true,
+      deviceInfo: 'Windows Desktop Edge'
+    }
+  ]);
+
   const [blocks, setBlocks] = useState<Block[]>(INITIAL_BLOCKS);
   const [villages, setVillages] = useState<Village[]>(INITIAL_VILLAGES);
   const [shgs, setShgs] = useState<SHG[]>(INITIAL_SHGS);
@@ -183,6 +275,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (parsed.schemeApplications?.length) setSchemeApplications(parsed.schemeApplications);
           if (parsed.notifications?.length) setNotifications(parsed.notifications);
           if (parsed.auditLogs?.length) setAuditLogs(parsed.auditLogs);
+          if (parsed.blockManagers?.length) setBlockManagers(parsed.blockManagers);
+          if (parsed.users?.length) setUsers(parsed.users);
         }
       } catch (err) {
         console.error('Failed to load local storage state:', err);
@@ -209,7 +303,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             documents,
             schemeApplications,
             notifications,
-            auditLogs
+            auditLogs,
+            blockManagers,
+            users
           })
         );
       } catch (err) {
@@ -229,548 +325,820 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     documents,
     schemeApplications,
     notifications,
-    auditLogs
+    auditLogs,
+    blockManagers,
+    users
   ]);
 
-  const addAuditLog = (action: string, actionMarathi: string, entityType: string, entityId: string, details: string) => {
-    const newLog: AuditLog = {
-      id: 'log_' + Date.now(),
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      action,
-      actionMarathi,
-      performedBy: currentUser.marathiName,
-      role: currentUser.role,
-      entityType,
-      entityId,
-      ipAddress: '192.168.1.' + Math.floor(Math.random() * 80 + 10),
-      details
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+  // Voice assistant trigger
+  const speakText = (text: string) => {
+    speakMarathi(text);
   };
 
-  const addNotification = (title: string, marathiMessage: string, type: NotificationItem['type'], badgeType: NotificationItem['badgeType'] = 'info') => {
+  const addNotification = (
+    title: string,
+    marathiMessage: string,
+    type: NotificationItem['type'] = 'SYSTEM_ALERT',
+    badgeType: NotificationItem['badgeType'] = 'info'
+  ) => {
     const newNotif: NotificationItem = {
-      id: 'notif_' + Date.now(),
+      id: `notif_${Date.now()}`,
       title,
       marathiMessage,
       type,
-      createdAt: 'आत्ताच (Just now)',
+      createdAt: 'आत्ताच',
       isRead: false,
       badgeType
     };
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  const switchRole = (role: Role) => {
-    const user = users.find(u => u.role === role) || users[0];
-    setCurrentUser(user);
-    speakMarathi(`${user.marathiName} खात्यावर स्विच केले.`);
-    addAuditLog('ROLE_SWITCH', 'भूमिका बदल (Role Switch)', 'USER', user.id, `युझरने ${role} भूमिकेत प्रवेश केला.`);
+  const logActivity = (
+    action: string,
+    actionMarathi: string,
+    entityType: string,
+    entityId: string,
+    details: string
+  ) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      action,
+      actionMarathi,
+      performedBy: currentUser.marathiName || currentUser.name,
+      role: currentUser.role,
+      entityType,
+      entityId,
+      ipAddress: '192.168.1.102',
+      details
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  const addAuditLog = (
+    action: string,
+    actionMarathi: string,
+    entityType: string,
+    entityId: string,
+    details: string
+  ) => {
+    logActivity(action, actionMarathi, entityType, entityId, details);
+  };
+
+  // Switch role internally
+  const switchRole = (newRole: Role) => {
+    const matchingUser = users.find(u => u.role === newRole) || {
+      id: `usr_${newRole.toLowerCase()}`,
+      name: `${newRole} User`,
+      marathiName: newRole === 'CRP' ? 'समूह सखी' : newRole === 'BLOCK_MANAGER' ? 'प्रखंड व्यवस्थापक' : 'प्रशासक',
+      mobile: '9881123456',
+      role: newRole,
+      avatar: newRole === 'CRP' ? '👩🏽‍💼' : newRole === 'BLOCK_MANAGER' ? '👨🏽‍💼' : '🏛️'
+    };
+    setCurrentUser(matchingUser);
+    speakText(`भूमिका बदलली: ${matchingUser.marathiName}`);
+  };
+
+  // Toggle online mode
   const toggleOnline = () => {
     setIsOnline(prev => {
       const next = !prev;
-      if (!next) {
-        speakMarathi('आपण ऑफलाइन मोडमध्ये आहात. डेटा सुरक्षित राहील.');
-      } else {
-        speakMarathi('आपण ऑनलाइन आला आहात. ऑफलाइन डेटा सिंक होत आहे.');
-        syncOfflineData();
-      }
+      speakText(next ? 'आपण आता ऑनलाइन आहात' : 'आपण आता ऑफलाइन मोडमध्ये आहात');
       return next;
     });
   };
 
   const syncOfflineData = () => {
     setOfflineQueueCount(0);
-    addNotification('ऑफलाइन डेटा सिंक पूर्ण', 'सर्व ऑफलाइन नोंदी मुख्य सर्व्हरवर सिंक झाल्या आहेत.', 'SYSTEM_ALERT', 'success');
+    speakText('सर्व ऑफलाइन नोंदी सर्व्हरवर यशस्वीरित्या समक्रमित झाल्या आहेत.');
+    addNotification('ऑफलाइन डेटा समक्रमित', 'सर्व प्रलंबित नोंदी यशस्वीरीत्या क्लाउड सर्व्हरवर साठवल्या गेल्या आहेत.', 'SYSTEM_ALERT', 'success');
   };
 
-  const speakText = (text: string) => {
-    speakMarathi(text);
+  // Track user login session
+  const recordUserLogin = (user: User) => {
+    setCurrentUser(user);
+    const updatedUsers = users.map(u => u.id === user.id ? { ...u, lastLoginAt: new Date().toISOString(), lastActiveAt: new Date().toISOString() } : u);
+    setUsers(updatedUsers);
+
+    // Add or update active login session
+    setLoginSessions(prev => {
+      const filtered = prev.filter(s => s.userId !== user.id);
+      const newSession: LoginSession = {
+        sessionId: `sess_${Date.now()}`,
+        userId: user.id,
+        username: user.username || user.mobile,
+        role: user.role,
+        loginTime: new Date().toISOString(),
+        lastPingTime: new Date().toISOString(),
+        isActive: true,
+        deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 40) : 'Web'
+      };
+      return [newSession, ...filtered];
+    });
+
+    logActivity('USER_LOGIN', 'वापरकर्ता लॉगिन', 'USER', user.id, `${user.marathiName} यांनी सखीसेतू प्रणालीमध्ये प्रवेश केला.`);
   };
 
-  // SHG CRUD (NO DELETE)
-  const addSHG = (shgData: Omit<SHG, 'id' | 'code' | 'totalSavings' | 'totalInternalLoansActive' | 'totalMembersCount'>) => {
-    const newId = 'shg_' + Date.now();
-    const code = `SHG-MH-${Math.floor(100 + Math.random() * 900)}`;
-    const newSHG: SHG = {
-      ...shgData,
-      id: newId,
+  const recordUserLogout = () => {
+    setLoginSessions(prev => prev.map(s => s.userId === currentUser.id ? { ...s, isActive: false } : s));
+    logActivity('USER_LOGOUT', 'वापरकर्ता लॉगआउट', 'USER', currentUser.id, `${currentUser.marathiName} यांनी लॉगआउट केले.`);
+  };
+
+  // ==========================================
+  // ROLE-BASED DATA ISOLATION & HIERARCHY
+  // ==========================================
+  
+  // 1. Filtered SHGs based on Role
+  const filteredSHGs = useMemo(() => {
+    if (currentUser.role === 'ADMIN') {
+      return shgs;
+    }
+    if (currentUser.role === 'BLOCK_MANAGER') {
+      const bId = currentUser.blockId || 'jalkot';
+      return shgs.filter(s => s.blockId === bId || s.villageId === 'vlg_atnur' || s.villageId === 'vlg_khed_shivapur');
+    }
+    // CRP: Only see assigned SHGs or village SHGs
+    return shgs.filter(s => {
+      if (s.crpId === currentUser.id) return true;
+      if (currentUser.assignedVillageIds && currentUser.assignedVillageIds.includes(s.villageId)) return true;
+      // Default matching for demo CRP
+      return s.villageId === 'vlg_atnur' || s.villageId === 'vlg_khed_shivapur' || s.blockId === currentUser.blockId;
+    });
+  }, [shgs, currentUser]);
+
+  const activeShgIds = useMemo(() => new Set(filteredSHGs.map(s => s.id)), [filteredSHGs]);
+
+  // 2. Filtered Members based on SHGs
+  const filteredMembers = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return members;
+    return members.filter(m => activeShgIds.has(m.shgId));
+  }, [members, activeShgIds, currentUser]);
+
+  // 3. Filtered Financials & Field Records
+  const filteredSavings = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return savings;
+    return savings.filter(s => activeShgIds.has(s.shgId));
+  }, [savings, activeShgIds, currentUser]);
+
+  const filteredLoans = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return loans;
+    return loans.filter(l => activeShgIds.has(l.shgId));
+  }, [loans, activeShgIds, currentUser]);
+
+  const filteredMeetings = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return meetings;
+    return meetings.filter(m => activeShgIds.has(m.shgId));
+  }, [meetings, activeShgIds, currentUser]);
+
+  const filteredFieldVisits = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return fieldVisits;
+    if (currentUser.role === 'BLOCK_MANAGER') {
+      return fieldVisits; // Block manager monitors all block field visits
+    }
+    return fieldVisits.filter(fv => fv.crpId === currentUser.id || activeShgIds.has(fv.shgId || ''));
+  }, [fieldVisits, activeShgIds, currentUser]);
+
+  const filteredTasks = useMemo(() => {
+    if (currentUser.role === 'ADMIN') return tasks;
+    if (currentUser.role === 'BLOCK_MANAGER') {
+      return tasks.filter(t => t.assignedRole === 'BLOCK_MANAGER' || t.assignedRole === 'CRP');
+    }
+    return tasks.filter(t => t.assignedRole === 'CRP');
+  }, [tasks, currentUser]);
+
+  // ==========================================
+  // BLOCK MANAGER CRP SUPERVISION SUMMARIES
+  // ==========================================
+  const getCRPPerformanceSummaries = (targetBlockId?: string): CRPPerformanceSummary[] => {
+    let blockCRPs: User[] = [];
+
+    if (currentUser.role === 'ADMIN') {
+      // Admin can see all CRPs, optionally filtered by targetBlockId
+      blockCRPs = users.filter(u => u.role === 'CRP' && (!targetBlockId || targetBlockId === 'ALL' || u.blockId === targetBlockId));
+    } else if (currentUser.role === 'BLOCK_MANAGER') {
+      // Strict Access: Block Manager sees ONLY CRPs assigned to them (blockManagerId === currentUser.id)
+      blockCRPs = users.filter(u => u.role === 'CRP' && (u.blockManagerId === currentUser.id || (!u.blockManagerId && u.blockId === currentUser.blockId)));
+    } else {
+      // CRP: Only sees self
+      blockCRPs = users.filter(u => u.id === currentUser.id);
+    }
+
+    return blockCRPs.map(crp => {
+      const crpShgs = shgs.filter(s => s.crpId === crp.id || (crp.assignedVillageIds && crp.assignedVillageIds.includes(s.villageId)));
+      const crpShgIds = new Set(crpShgs.map(s => s.id));
+      const crpMembers = members.filter(m => crpShgIds.has(m.shgId));
+      const crpVisits = fieldVisits.filter(v => v.crpId === crp.id || crpShgIds.has(v.shgId || ''));
+      const crpMeetings = meetings.filter(m => crpShgIds.has(m.shgId));
+      const crpTasks = tasks.filter(t => t.assignedRole === 'CRP');
+      const completedTasks = crpTasks.filter(t => t.completed).length;
+      const pendingTasks = crpTasks.filter(t => !t.completed).length;
+
+      // Active session calculation
+      const hasActiveSession = loginSessions.some(s => s.userId === crp.id && s.isActive);
+      const isStatusActive = crp.status === 'ACTIVE';
+
+      let statusType: 'ACTIVE' | 'RECENTLY_ACTIVE' | 'INACTIVE' = 'INACTIVE';
+      if (hasActiveSession) {
+        statusType = 'ACTIVE';
+      } else if (isStatusActive) {
+        statusType = 'RECENTLY_ACTIVE';
+      }
+
+      return {
+        crpId: crp.username || crp.id,
+        userId: crp.id,
+        crpName: crp.name,
+        crpMarathiName: crp.marathiName,
+        mobile: crp.mobile,
+        email: crp.email,
+        villageName: crp.blockName || 'जळकोट (अतनूर)',
+        districtId: crp.districtId,
+        districtName: crp.districtName,
+        blockId: crp.blockId,
+        blockName: crp.blockName,
+        blockManagerId: crp.blockManagerId,
+        assignedSHGsCount: crpShgs.length || 3,
+        totalMembersCount: crpMembers.length || 33,
+        tasksAssigned: crpTasks.length || 4,
+        tasksCompleted: completedTasks || 3,
+        tasksPending: pendingTasks || 1,
+        fieldVisitsCompleted: crpVisits.length || 2,
+        meetingsCompleted: crpMeetings.length || 4,
+        reportsSubmitted: 6,
+        lastLogin: crp.lastLoginAt ? new Date(crp.lastLoginAt).toLocaleDateString('mr-IN', { hour: '2-digit', minute: '2-digit' }) : 'आज सकाळी ९:३०',
+        lastActivity: crp.lastActiveAt ? '१० मिनिटांपूर्वी' : '३० मिनिटांपूर्वी',
+        isCurrentlyLoggedIn: hasActiveSession,
+        status: statusType
+      };
+    });
+  };
+
+  // ==========================================
+  // BLOCK MANAGER CRP MANAGEMENT (ADD, EDIT, STATUS, RESET, DELETE)
+  // ==========================================
+  const addCRP = async (crpData: {
+    name: string;
+    marathiName: string;
+    mobile: string;
+    email?: string;
+    username?: string;
+    password?: string;
+    districtId?: string;
+    districtName?: string;
+    blockId?: string;
+    blockName?: string;
+    villageName?: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+  }) => {
+    // Only BLOCK_MANAGER and ADMIN can add CRP
+    if (currentUser.role !== 'BLOCK_MANAGER' && currentUser.role !== 'ADMIN') {
+      throw new Error('अनधिकृत: केवळ प्रखंड व्यवस्थापक किंवा प्रशासक समूह सखी जोडू शकतात.');
+    }
+
+    const newUserId = `crp_${Date.now()}`;
+    const newUsername = crpData.username?.trim() || `crp_${Math.floor(100 + Math.random() * 900)}`;
+    const statusVal = crpData.status || 'ACTIVE';
+    const emailVal = crpData.email || `${crpData.mobile}@sakhisetu.gov.in`;
+    const districtId = currentUser.role === 'BLOCK_MANAGER' ? (currentUser.districtId || 'dist_latur') : (crpData.districtId || 'dist_latur');
+    const districtName = currentUser.role === 'BLOCK_MANAGER' ? (currentUser.districtName || 'लातूर जिल्हा') : (crpData.districtName || 'लातूर जिल्हा');
+    const blockId = currentUser.role === 'BLOCK_MANAGER' ? (currentUser.blockId || 'jalkot') : (crpData.blockId || 'jalkot');
+    const blockName = currentUser.role === 'BLOCK_MANAGER' ? (currentUser.blockName || 'जळकोट (लातूर)') : (crpData.blockName || 'जळकोट (लातूर)');
+    const blockManagerId = currentUser.role === 'BLOCK_MANAGER' ? currentUser.id : undefined;
+
+    let passHash = DEFAULT_DEMO_HASHES.CRP;
+    if (crpData.password && crpData.password.trim()) {
+      passHash = await hashPassword(crpData.password.trim());
+    }
+
+    const newUser: User = {
+      id: newUserId,
+      username: newUsername,
+      name: crpData.name,
+      marathiName: `${crpData.marathiName} (समूह सखी)`,
+      mobile: crpData.mobile,
+      email: emailVal,
+      passwordHash: passHash,
+      role: 'CRP',
+      districtId,
+      districtName,
+      blockId,
+      blockName,
+      blockManagerId,
+      assignedVillageIds: ['vlg_atnur'],
+      avatar: '👩🏽‍💼',
+      status: statusVal,
+      lastLoginAt: 'कधीही नाही',
+      createdAt: new Date().toISOString()
+    };
+
+    setUsers(prev => [newUser, ...prev]);
+    if (blockManagerId) {
+      setBlockManagers(prev => prev.map(bm => bm.userId === blockManagerId ? { ...bm, assignedCrpCount: bm.assignedCrpCount + 1 } : bm));
+    }
+
+    addAuditLog('ADD_CRP', 'नवीन समूह सखी जोडली', 'CRP', newUserId, `${crpData.marathiName} यांची ${blockName} साठी समूह सखी म्हणून नोंदणी केली.`);
+    addNotification('नवीन समूह सखी जोडली', `${crpData.marathiName} यशस्वीरित्या समाविष्ट झाली.`, 'SYSTEM_ALERT', 'success');
+  };
+
+  const updateCRP = (userId: string, updates: Partial<User>) => {
+    const targetCRP = users.find(u => u.id === userId && u.role === 'CRP');
+    if (!targetCRP) return;
+
+    if (currentUser.role === 'BLOCK_MANAGER' && targetCRP.blockManagerId && targetCRP.blockManagerId !== currentUser.id) {
+      alert('अनधिकृत: आपण केवळ आपल्या कार्यक्षेत्रातील समूह सखींची माहिती बदलू शकता.');
+      return;
+    }
+
+    const safeUpdates = { ...updates };
+    delete (safeUpdates as any).role;
+    delete (safeUpdates as any).passwordHash;
+
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...safeUpdates } : u));
+    addAuditLog('UPDATE_CRP', 'समूह सखी माहिती अद्ययावत', 'CRP', userId, `${updates.marathiName || targetCRP.marathiName} यांची माहिती अद्ययावत केली.`);
+    addNotification('माहिती अद्ययावत', `${updates.marathiName || targetCRP.marathiName} यांची माहिती यशस्वीरित्या जतन झाली.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  const toggleCRPStatus = (userId: string) => {
+    const targetCRP = users.find(u => u.id === userId && u.role === 'CRP');
+    if (!targetCRP) return;
+
+    if (currentUser.role === 'BLOCK_MANAGER' && targetCRP.blockManagerId && targetCRP.blockManagerId !== currentUser.id) {
+      alert('अनधिकृत: केवळ नियुक्त केलेल्या समूह सखींची स्थिती बदलता येईल.');
+      return;
+    }
+
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        const nextStatus = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        return { ...u, status: nextStatus };
+      }
+      return u;
+    }));
+    addAuditLog('TOGGLE_CRP_STATUS', 'समूह सखी स्थिती बदलली', 'CRP', userId, `स्थिती सक्रिय/निष्क्रिय करण्यात आली.`);
+  };
+
+  const resetCRPPassword = async (userId: string, newPassword = 'Crp@12345'): Promise<boolean> => {
+    const targetCRP = users.find(u => u.id === userId && u.role === 'CRP');
+    if (!targetCRP) return false;
+
+    if (currentUser.role === 'BLOCK_MANAGER' && targetCRP.blockManagerId && targetCRP.blockManagerId !== currentUser.id) {
+      alert('अनधिकृत: आपण केवळ आपल्या कार्यक्षेत्रातील समूह सखींचा पासवर्ड रीसेट करू शकता.');
+      return false;
+    }
+
+    const hashed = await hashPassword(newPassword);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, passwordHash: hashed } : u));
+    addAuditLog('RESET_CRP_PASSWORD', 'समूह सखी पासवर्ड रीसेट', 'USER', userId, `डिफॉल्ट पासवर्ड रीसेट यशस्वी.`);
+    addNotification('पासवर्ड रीसेट यशस्वी', `समूह सखीचा पासवर्ड रीसेट करण्यात आला आहे.`, 'SYSTEM_ALERT', 'success');
+    return true;
+  };
+
+  const deleteCRP = (userId: string) => {
+    const targetCRP = users.find(u => u.id === userId && u.role === 'CRP');
+    if (!targetCRP) return;
+
+    if (currentUser.role === 'BLOCK_MANAGER' && targetCRP.blockManagerId && targetCRP.blockManagerId !== currentUser.id) {
+      alert('अनधिकृत: आपण इतर व्यवस्थापकांची समूह सखी हटवू शकत नाही.');
+      return;
+    }
+
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    if (targetCRP.blockManagerId) {
+      setBlockManagers(prev => prev.map(bm => bm.userId === targetCRP.blockManagerId ? { ...bm, assignedCrpCount: Math.max(0, bm.assignedCrpCount - 1) } : bm));
+    }
+    addAuditLog('DELETE_CRP', 'समूह सखी हटवली', 'CRP', userId, `${targetCRP.marathiName} समूह सखी रेकॉर्ड हटवले.`);
+    addNotification('समूह सखी हटवली', `${targetCRP.marathiName} यशस्वीरित्या हटवली गेली.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  // ==========================================
+  // ADMIN BLOCK MANAGER MANAGEMENT
+  // ==========================================
+  const addBlockManager = async (bmData: {
+    name: string;
+    marathiName: string;
+    mobile: string;
+    email?: string;
+    username?: string;
+    password?: string;
+    districtId: string;
+    districtName: string;
+    blockId: string;
+    blockName: string;
+    assignedArea: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+  }) => {
+    const newUserId = `bm_${Date.now()}`;
+    const newManagerId = `BM-MH-${bmData.blockId.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+    const statusVal = bmData.status || 'ACTIVE';
+    const emailVal = bmData.email || `${bmData.mobile}@sakhisetu.gov.in`;
+
+    const newProfile: BlockManagerProfile = {
+      userId: newUserId,
+      managerId: newManagerId,
+      name: bmData.name,
+      marathiName: bmData.marathiName,
+      mobile: bmData.mobile,
+      email: emailVal,
+      districtId: bmData.districtId,
+      districtName: bmData.districtName,
+      blockId: bmData.blockId,
+      blockName: bmData.blockName,
+      assignedArea: bmData.assignedArea,
+      assignedCrpCount: 12,
+      assignedShgCount: 140,
+      status: statusVal,
+      lastLoginAt: 'कधीही नाही',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    let passHash = DEFAULT_DEMO_HASHES.BLOCK_MANAGER;
+    if (bmData.password && bmData.password.trim()) {
+      passHash = await hashPassword(bmData.password.trim());
+    }
+
+    const newUser: User = {
+      id: newUserId,
+      username: bmData.username?.trim() || `bm_${bmData.blockId}`,
+      name: bmData.name,
+      marathiName: `${bmData.marathiName} (प्रखंड व्यवस्थापक)`,
+      mobile: bmData.mobile,
+      email: emailVal,
+      passwordHash: passHash,
+      role: 'BLOCK_MANAGER',
+      districtId: bmData.districtId,
+      districtName: bmData.districtName,
+      blockId: bmData.blockId,
+      blockName: bmData.blockName,
+      status: statusVal,
+      createdAt: new Date().toISOString()
+    };
+
+    setBlockManagers(prev => [newProfile, ...prev]);
+    setUsers(prev => [newUser, ...prev]);
+    addAuditLog('ADD_BLOCK_MANAGER', 'नवीन प्रखंड व्यवस्थापक जोडले', 'BLOCK_MANAGER', newUserId, `${bmData.marathiName} यांची ${bmData.blockName} साठी नियुक्ती.`);
+    addNotification('नवीन व्यवस्थापक जोडले', `${bmData.marathiName} यशस्वीरित्या समाविष्ट झाले.`, 'SYSTEM_ALERT', 'success');
+  };
+
+  const updateBlockManager = (userId: string, updates: Partial<BlockManagerProfile>) => {
+    setBlockManagers(prev => prev.map(bm => bm.userId === userId ? { ...bm, ...updates } : bm));
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: updates.name || u.name, marathiName: updates.marathiName || u.marathiName, mobile: updates.mobile || u.mobile } : u));
+    addAuditLog('UPDATE_BLOCK_MANAGER', 'प्रखंड व्यवस्थापक माहिती अद्ययावत', 'BLOCK_MANAGER', userId, `व्यवस्थापक तपशील अद्ययावत केले.`);
+  };
+
+  const toggleBlockManagerStatus = (userId: string) => {
+    setBlockManagers(prev => prev.map(bm => {
+      if (bm.userId === userId) {
+        const nextStatus = bm.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        return { ...bm, status: nextStatus };
+      }
+      return bm;
+    }));
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return { ...u, status: u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
+      }
+      return u;
+    }));
+    addAuditLog('TOGGLE_BM_STATUS', 'व्यवस्थापक स्थिती बदलली', 'BLOCK_MANAGER', userId, `स्थिती सक्रिय/निष्क्रिय करण्यात आली.`);
+  };
+
+  const resetBlockManagerPassword = async (userId: string, newPassword = 'Block@12345'): Promise<boolean> => {
+    const hashed = await hashPassword(newPassword);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, passwordHash: hashed } : u));
+    addAuditLog('RESET_BM_PASSWORD', 'व्यवस्थापक पासवर्ड रीसेट', 'USER', userId, `डिफॉल्ट पासवर्ड रीसेट यशस्वी.`);
+    addNotification('पासवर्ड रीसेट यशस्वी', `प्रखंड व्यवस्थापकाचा पासवर्ड रीसेट करण्यात आला आहे.`, 'SYSTEM_ALERT', 'success');
+    return true;
+  };
+
+  const deleteBlockManager = (userId: string) => {
+    const targetBM = blockManagers.find(b => b.userId === userId);
+    setBlockManagers(prev => prev.filter(bm => bm.userId !== userId));
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    addAuditLog('DELETE_BLOCK_MANAGER', 'प्रखंड व्यवस्थापक हटवले', 'BLOCK_MANAGER', userId, `${targetBM?.marathiName || userId} व्यवस्थापक रेकॉर्ड हटवले.`);
+    addNotification('व्यवस्थापक हटवले', `${targetBM?.marathiName || 'व्यवस्थापक'} यशस्वीरित्या हटवले गेले.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  // ==========================================
+  // CRUD & CASCADE DELETE OPERATIONS
+  // ==========================================
+
+  // SHG CRUD
+  const addSHG = (newShgData: Omit<SHG, 'id' | 'code' | 'totalSavings' | 'totalInternalLoansActive' | 'totalMembersCount'>) => {
+    const id = `shg_${Date.now()}`;
+    const code = `SHG-MH-${newShgData.villageName.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newShg: SHG = {
+      ...newShgData,
+      id,
       code,
       totalSavings: 0,
       totalInternalLoansActive: 0,
       totalMembersCount: 0
     };
-    setShgs(prev => [newSHG, ...prev]);
-    addAuditLog('CREATE_SHG', 'नवीन बचत गट नोंदणी', 'SHG', newId, `नवीन गट: ${newSHG.marathiName} (${code}) जोडण्यात आला.`);
-    addNotification('नवीन बचत गट जोडला', `${newSHG.marathiName} ची यशस्वी नोंदणी झाली.`, 'SYSTEM_ALERT', 'success');
-    speakMarathi(`नवीन बचत गट ${newSHG.marathiName} यशस्वीरित्या तयार करण्यात आला.`);
+    setShgs(prev => [newShg, ...prev]);
+    addAuditLog('CREATE_SHG', 'नवीन बचत गट नोंदवला', 'SHG', id, `${newShg.marathiName} ची नोंदणी यशस्वी.`);
+    addNotification('नवीन बचत गट जोडला', `${newShg.marathiName} ची यशस्वी नोंदणी झाली.`, 'SYSTEM_ALERT', 'success');
   };
 
   const updateSHG = (id: string, updates: Partial<SHG>) => {
     setShgs(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)));
-    addAuditLog('UPDATE_SHG', 'बचत गट माहिती अद्ययावत', 'SHG', id, `बचत गट तपशील अपडेट केला.`);
+    addAuditLog('UPDATE_SHG', 'बचत गट माहिती अद्ययावत', 'SHG', id, `बचत गट तपशील सुधारित.`);
   };
 
-  // Member CRUD (NO DELETE)
+  const deleteSHG = (id: string) => {
+    const target = shgs.find(s => s.id === id);
+    setShgs(prev => prev.filter(s => s.id !== id));
+    setMembers(prev => prev.filter(m => m.shgId !== id));
+    setSavings(prev => prev.filter(s => s.shgId !== id));
+    setLoans(prev => prev.filter(l => l.shgId !== id));
+    setMeetings(prev => prev.filter(m => m.shgId !== id));
+    setDocuments(prev => prev.filter(d => !(d.entityType === 'SHG' && d.entityId === id)));
+    
+    addAuditLog('DELETE_SHG', 'बचत गट हटवला', 'SHG', id, `${target?.marathiName || ''} बचत गट व संबंधित सर्व डेटा यशस्वीरित्या हटवला.`);
+    addNotification('बचत गट हटवला', `${target?.marathiName || ''} बचत गट हटवला गेला आहे.`, 'SYSTEM_ALERT', 'warning');
+  };
+
+  // Member CRUD
   const addMember = (memberData: Omit<Member, 'id' | 'totalSaved' | 'activeLoanAmount' | 'joiningDate'>) => {
-    const newId = 'mem_' + Date.now();
+    const id = `mem_${Date.now()}`;
     const newMember: Member = {
       ...memberData,
-      id: newId,
+      id,
       totalSaved: 0,
       activeLoanAmount: 0,
       joiningDate: new Date().toISOString().split('T')[0]
     };
     setMembers(prev => [newMember, ...prev]);
-
-    // Update SHG member count
-    setShgs(prev =>
-      prev.map(s => (s.id === memberData.shgId ? { ...s, totalMembersCount: s.totalMembersCount + 1 } : s))
-    );
-
-    addAuditLog('CREATE_MEMBER', 'नवीन महिला सदस्य नोंदणी', 'MEMBER', newId, `${newMember.marathiName} यांची ${newMember.shgName} मध्ये नोंदणी.`);
-    addNotification('नवीन सदस्य नोंदणी', `${newMember.marathiName} यांची नोंदणी पूर्ण झाली.`, 'SYSTEM_ALERT', 'success');
-    speakMarathi(`${newMember.marathiName} यांची नोंदणी यशस्वी झाली.`);
+    setShgs(prev => prev.map(s => (s.id === newMember.shgId ? { ...s, totalMembersCount: s.totalMembersCount + 1 } : s)));
+    addAuditLog('CREATE_MEMBER', 'नवीन महिला सदस्या जोडली', 'MEMBER', id, `${newMember.marathiName} ची ${newMember.shgName} मध्ये नोंदणी.`);
+    addNotification('नवीन सदस्य नोंदणी', `${newMember.marathiName} बचत गटात समाविष्ट झाल्या.`, 'SYSTEM_ALERT', 'success');
   };
 
   const updateMember = (id: string, updates: Partial<Member>) => {
     setMembers(prev => prev.map(m => (m.id === id ? { ...m, ...updates } : m)));
-    addAuditLog('UPDATE_MEMBER', 'सदस्य माहिती अद्ययावत', 'MEMBER', id, `सदस्य तपशील अपडेट केला.`);
+    addAuditLog('UPDATE_MEMBER', 'सदस्य माहिती अद्ययावत', 'MEMBER', id, `महिला सदस्याचे तपशील अद्ययावत केले.`);
   };
 
-  // Savings
-  const recordSavings = (recordData: Omit<SavingsRecord, 'id' | 'receiptNumber' | 'recordedBy'>) => {
-    const newId = 'sav_' + Date.now();
-    const receiptNumber = `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newRecord: SavingsRecord = {
-      ...recordData,
-      id: newId,
-      receiptNumber,
-      recordedBy: currentUser.marathiName,
-      syncedOffline: !isOnline
-    };
-
-    setSavings(prev => [newRecord, ...prev]);
-
-    // Update Member totalSaved
-    setMembers(prev =>
-      prev.map(m => (m.id === recordData.memberId ? { ...m, totalSaved: m.totalSaved + recordData.totalAmount } : m))
-    );
-
-    // Update SHG totalSavings
-    setShgs(prev =>
-      prev.map(s => (s.id === recordData.shgId ? { ...s, totalSavings: s.totalSavings + recordData.totalAmount } : s))
-    );
-
-    if (!isOnline) {
-      setOfflineQueueCount(prev => prev + 1);
-    }
-
-    addAuditLog('RECORD_SAVINGS', 'बचत पावती नोंद', 'SAVINGS', newId, `${recordData.memberName} यांची ₹${recordData.totalAmount} बचत पावती (${receiptNumber}) नोंदवली.`);
-    addNotification('बचत पावती तयार', `${recordData.memberName} यांची ₹${recordData.totalAmount} बचत जमा झाली.`, 'SAVINGS_RECEIPT', 'success');
-    speakMarathi(`${recordData.memberName} यांची ₹${recordData.totalAmount} बचत पावती यशस्वीरित्या नोंदवली गेली.`);
-  };
-
-  // Loans
-  const disburseLoan = (loanData: Omit<LoanRecord, 'id' | 'remainingPrincipal' | 'totalPaid' | 'status' | 'approvedBy'>) => {
-    const newId = 'loan_' + Date.now();
-    const newLoan: LoanRecord = {
-      ...loanData,
-      id: newId,
-      remainingPrincipal: loanData.principalAmount,
-      totalPaid: 0,
-      status: 'सक्रिय (Active)',
-      approvedBy: 'बचत गट मासिक सभा ठराव'
-    };
-
-    setLoans(prev => [newLoan, ...prev]);
-
-    // Update Member active loan
-    setMembers(prev =>
-      prev.map(m => (m.id === loanData.memberId ? { ...m, activeLoanAmount: m.activeLoanAmount + loanData.principalAmount } : m))
-    );
-
-    // Update SHG internal loans if internal
-    if (loanData.loanType.includes('अंतर्गत')) {
-      setShgs(prev =>
-        prev.map(s => (s.id === loanData.shgId ? { ...s, totalInternalLoansActive: s.totalInternalLoansActive + loanData.principalAmount } : s))
-      );
-    }
-
-    addAuditLog('DISBURSE_LOAN', 'कर्ज वाटप नोंद', 'LOAN', newId, `${loanData.memberName} यांना ₹${loanData.principalAmount} चे कर्ज मंजूर व वितरित.`);
-    addNotification('कर्ज वाटप झाले', `${loanData.memberName} यांना ₹${loanData.principalAmount} कर्ज वितरित केले.`, 'LOAN_DUE', 'info');
-    speakMarathi(`${loanData.memberName} यांना ₹${loanData.principalAmount} कर्ज यशस्वीरित्या वाटप करण्यात आले.`);
-  };
-
-  const repayLoan = (loanId: string, amount: number, notes?: string) => {
-    const targetLoan = loans.find(l => l.id === loanId);
-    if (!targetLoan) return;
-
-    const remaining = Math.max(0, targetLoan.remainingPrincipal - amount);
-    const newStatus = remaining === 0 ? 'पूर्ण परतफेड (Closed)' : 'सक्रिय (Active)';
-
-    setLoans(prev =>
-      prev.map(l =>
-        l.id === loanId
-          ? {
-              ...l,
-              remainingPrincipal: remaining,
-              totalPaid: l.totalPaid + amount,
-              status: newStatus
-            }
-          : l
-      )
-    );
-
-    // Update Member loan balance
-    setMembers(prev =>
-      prev.map(m =>
-        m.id === targetLoan.memberId
-          ? { ...m, activeLoanAmount: Math.max(0, m.activeLoanAmount - amount) }
-          : m
-      )
-    );
-
-    addAuditLog('REPAY_LOAN', 'कर्ज परतफेड नोंद', 'LOAN', loanId, `${targetLoan.memberName} यांनी ₹${amount} हप्ता जमा केला. शिल्लक: ₹${remaining}`);
-    addNotification('कर्ज परतफेड पावती', `${targetLoan.memberName} यांचा ₹${amount} हप्ता जमा झाला.`, 'LOAN_DUE', 'success');
-    speakMarathi(`${targetLoan.memberName} यांचा ₹${amount} हप्ता जमा झाला. शिल्लक मुद्दल ₹${remaining} आहे.`);
-  };
-
-  // Meetings
-  const addMeeting = (mtgData: Omit<Meeting, 'id' | 'totalAttendance' | 'totalMembers' | 'totalSavingsCollected' | 'totalLoanCollected' | 'totalNewLoansSanctioned' | 'status'>) => {
-    const newId = 'mtg_' + Date.now();
-    const targetSHG = shgs.find(s => s.id === mtgData.shgId);
-    const totalMembers = targetSHG ? targetSHG.totalMembersCount : 10;
-    const presentCount = mtgData.attendanceList.filter(a => a.status.includes('उपस्थित')).length;
-    const totalSavings = mtgData.attendanceList.reduce((acc, cur) => acc + (cur.savingsPaid || 0), 0);
-    const totalLoan = mtgData.attendanceList.reduce((acc, cur) => acc + (cur.loanEmiPaid || 0), 0);
-    const totalNewLoans = mtgData.attendanceList.reduce((acc, cur) => acc + (cur.newLoanApplied || 0), 0);
-
-    const newMeeting: Meeting = {
-      ...mtgData,
-      id: newId,
-      totalAttendance: presentCount,
-      totalMembers,
-      totalSavingsCollected: totalSavings,
-      totalLoanCollected: totalLoan,
-      totalNewLoansSanctioned: totalNewLoans,
-      status: 'पूर्ण (Completed)',
-      syncedOffline: !isOnline
-    };
-
-    setMeetings(prev => [newMeeting, ...prev]);
-
-    // Update SHG savings accordingly
-    if (totalSavings > 0) {
-      setShgs(prev =>
-        prev.map(s => (s.id === mtgData.shgId ? { ...s, totalSavings: s.totalSavings + totalSavings } : s))
-      );
-    }
-
-    addAuditLog('MEETING_COMPLETED', 'मासिक सभा नोंदणी', 'MEETING', newId, `${mtgData.shgName} ची सभा संपन्न. उपस्थिती: ${presentCount}/${totalMembers}, एकूण संकलन: ₹${totalSavings + totalLoan}`);
-    addNotification('मासिक सभा संपन्न', `${mtgData.shgName} ची मासिक सभा यशस्वीरित्या नोंदवली.`, 'MEETING_REMINDER', 'success');
-    speakMarathi(`${mtgData.shgName} ची मासिक सभा नोंदणी पूर्ण झाली. एकूण ₹${totalSavings + totalLoan} संकलन झाले.`);
-  };
-
-  const completeMeeting = (meetingId: string, resolution: string, photoUrl?: string) => {
-    setMeetings(prev =>
-      prev.map(m =>
-        m.id === meetingId
-          ? {
-              ...m,
-              meetingResolutionText: resolution,
-              meetingPhoto: photoUrl || m.meetingPhoto,
-              status: 'पूर्ण (Completed)'
-            }
-          : m
-      )
-    );
-  };
-
-  // Field Visits
-  const addFieldVisit = (visitData: Omit<FieldVisit, 'id' | 'crpId' | 'crpName'>) => {
-    const newId = 'fld_' + Date.now();
-    const newVisit: FieldVisit = {
-      ...visitData,
-      id: newId,
-      crpId: currentUser.id,
-      crpName: currentUser.name
-    };
-    setFieldVisits(prev => [newVisit, ...prev]);
-    addAuditLog('FIELD_VISIT', 'क्षेत्रीय भेट नोंद (GPS)', 'FIELD_VISIT', newId, `${visitData.villageName} येथे ${visitData.purpose} अंतर्गत भेट नोंदवली.`);
-    addNotification('क्षेत्रीय भेट नोंदवली', `${visitData.villageName} ची भेट यशस्वीरित्या जतन केली.`, 'SYSTEM_ALERT', 'success');
-    speakMarathi(`${visitData.villageName} ची क्षेत्रीय भेट यशस्वीरित्या नोंदवली.`);
-  };
-
-  // Business / Livelihood
-  const addBusiness = (bizData: Omit<BusinessEnterprise, 'id'>) => {
-    const newId = 'biz_' + Date.now();
-    const newBiz: BusinessEnterprise = {
-      ...bizData,
-      id: newId
-    };
-    setBusinesses(prev => [newBiz, ...prev]);
-    addAuditLog('ADD_BUSINESS', 'महिला उपजीविका उद्योग नोंद', 'BUSINESS', newId, `${bizData.memberName} यांचा ${bizData.businessName} उद्योग जोडला.`);
-    addNotification('उपजीविका नोंदणी', `${bizData.memberName} यांचा व्यवसाय यशस्वी नोंदवला.`, 'SYSTEM_ALERT', 'success');
-  };
-
-  // Govt Scheme
-  const applyForScheme = (appData: Omit<MemberSchemeApplication, 'id' | 'trackingNumber' | 'status'>) => {
-    const newId = 'app_' + Date.now();
-    const trackingNumber = `SCH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newApp: MemberSchemeApplication = {
-      ...appData,
-      id: newId,
-      trackingNumber,
-      status: 'अर्ज केला (Applied)'
-    };
-    setSchemeApplications(prev => [newApp, ...prev]);
-    addAuditLog('APPLY_SCHEME', 'शासकीय योजना अर्ज', 'SCHEME_APP', newId, `${appData.memberName} यांनी ${appData.schemeName} साठी अर्ज दाखल केला.`);
-    addNotification('योजना अर्ज दाखल', `${appData.memberName} यांचा अर्ज (${trackingNumber}) नोंदवला.`, 'SCHEME_SANCTION', 'info');
-    speakMarathi(`${appData.memberName} यांचा ${appData.schemeName} साठी अर्ज यशस्वीरित्या दाखल झाला.`);
-  };
-
-  // Training
-  const addTraining = (trnData: Omit<TrainingRecord, 'id'>) => {
-    const newId = 'trn_' + Date.now();
-    const newTrn: TrainingRecord = { ...trnData, id: newId };
-    setTrainings(prev => [newTrn, ...prev]);
-    addAuditLog('ADD_TRAINING', 'प्रशिक्षण सत्र नोंद', 'TRAINING', newId, `${trnData.marathiTopic} प्रशिक्षण नोंदवले.`);
-  };
-
-  // Tasks
-  const toggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, completed: !t.completed } : t)));
-  };
-
-  const addTask = (taskData: Omit<TaskReminder, 'id' | 'completed'>) => {
-    const newId = 'tsk_' + Date.now();
-    const newTask: TaskReminder = { ...taskData, id: newId, completed: false };
-    setTasks(prev => [newTask, ...prev]);
-    addNotification('नवीन कार्य जोडले', `${newTask.marathiTitle}`, 'SYSTEM_ALERT', 'info');
-  };
-
-  // Documents: Upload, Replace, Verify
-  const addDocument = (docData: Omit<DocumentItem, 'id' | 'uploadDate' | 'uploadedBy' | 'status'>) => {
-    const newId = 'doc_' + Date.now();
-    const newDoc: DocumentItem = {
-      ...docData,
-      id: newId,
-      uploadDate: new Date().toISOString().split('T')[0],
-      uploadedBy: currentUser.marathiName,
-      status: 'सत्यापित (Verified)'
-    };
-    setDocuments(prev => [newDoc, ...prev]);
-    addAuditLog('UPLOAD_DOC', 'कागदपत्र अपलोड', 'DOCUMENT', newId, `${docData.entityName} चे ${docData.docType} कागदपत्र सुरक्षित जोडले.`);
-    addNotification('कागदपत्र अपलोड झाले', `${docData.title} सुरक्षित साठवले आहे.`, 'SYSTEM_ALERT', 'success');
-    speakMarathi(`${docData.entityName} यांचे कागदपत्र यशस्वीरित्या सुरक्षित अपलोड झाले.`);
-  };
-
-  const replaceDocument = (id: string, newFileUrl: string, newTitle?: string, remarks?: string) => {
-    setDocuments(prev =>
-      prev.map(d =>
-        d.id === id
-          ? {
-              ...d,
-              fileUrl: newFileUrl,
-              title: newTitle || d.title,
-              uploadDate: new Date().toISOString().split('T')[0],
-              uploadedBy: currentUser.marathiName,
-              remarks: remarks || d.remarks,
-              status: 'सत्यापित (Verified)'
-            }
-          : d
-      )
-    );
-    addAuditLog('REPLACE_DOC', 'कागदपत्र बदलले (Replace)', 'DOCUMENT', id, `कागदपत्र नवीन फाईलसह अद्ययावत केले.`);
-    addNotification('कागदपत्र अद्ययावत झाले', `कागदपत्र नवीन फाईलसह यशस्वीरित्या बदलले आहे.`, 'SYSTEM_ALERT', 'success');
-    speakMarathi(`कागदपत्र यशस्वीरित्या नवीन फाईलसह बदलले गेले.`);
-  };
-
-  const verifyDocument = (id: string, newStatus: DocumentItem['status'], remarks?: string) => {
-    setDocuments(prev =>
-      prev.map(d =>
-        d.id === id
-          ? { ...d, status: newStatus, remarks: remarks || d.remarks }
-          : d
-      )
-    );
-    addAuditLog('VERIFY_DOC', 'कागदपत्र पडताळणी', 'DOCUMENT', id, `कागदपत्र स्थिती: ${newStatus}`);
-  };
-
-  // Delete SHG (Cascades/Cleans related members and records)
-  const deleteSHG = (id: string) => {
-    const target = shgs.find(s => s.id === id);
-    const shgName = target?.marathiName || 'बचत गट';
-    setShgs(prev => prev.filter(s => s.id !== id));
-    if (selectedShgId === id) setSelectedShgId(null);
-    addAuditLog('DELETE_SHG', 'बचत गट हटवला (Delete SHG)', 'SHG', id, `${shgName} हा बचत गट सिस्टीममधून हटवण्यात आला.`);
-    addNotification('बचत गट हटवला', `${shgName} यशस्वीरित्या हटवला गेला आहे.`, 'SYSTEM_ALERT', 'warning');
-    speakMarathi(`${shgName} यशस्वीरित्या हटवण्यात आला.`);
-  };
-
-  // Delete Member
   const deleteMember = (id: string) => {
     const target = members.find(m => m.id === id);
-    const memberName = target?.marathiName || 'सदस्य';
+    if (!target) return;
     setMembers(prev => prev.filter(m => m.id !== id));
-    if (target?.shgId) {
-      setShgs(prev =>
-        prev.map(s => (s.id === target.shgId ? { ...s, totalMembersCount: Math.max(0, s.totalMembersCount - 1) } : s))
-      );
-    }
-    if (selectedMemberId === id) setSelectedMemberId(null);
-    addAuditLog('DELETE_MEMBER', 'सदस्य नोंद हटवली (Delete Member)', 'MEMBER', id, `${memberName} यांची नोंद हटवण्यात आली.`);
-    addNotification('सदस्य नोंद हटवली', `${memberName} यांची नोंद यशस्वीरित्या हटवली आहे.`, 'SYSTEM_ALERT', 'warning');
-    speakMarathi(`${memberName} यांची नोंद हटवण्यात आली आहे.`);
+    setShgs(prev => prev.map(s => (s.id === target.shgId ? { ...s, totalMembersCount: Math.max(0, s.totalMembersCount - 1) } : s)));
+    setSavings(prev => prev.filter(s => s.memberId !== id));
+    setLoans(prev => prev.filter(l => l.memberId !== id));
+    setBusinesses(prev => prev.filter(b => b.memberId !== id));
+    setDocuments(prev => prev.filter(d => !(d.entityType === 'MEMBER' && d.entityId === id)));
+    
+    addAuditLog('DELETE_MEMBER', 'महिला सदस्य हटवली', 'MEMBER', id, `${target.marathiName} यांची नोंद हटवण्यात आली.`);
+    addNotification('सदस्य नोंद हटवली', `${target.marathiName} यांचे खाते हटवले गेले आहे.`, 'SYSTEM_ALERT', 'warning');
   };
 
-  // Delete Family Member
   const deleteFamilyMember = (memberId: string, familyIndex: number) => {
-    setMembers(prev =>
-      prev.map(m => {
-        if (m.id === memberId) {
-          const updatedFamily = m.familyMembers ? [...m.familyMembers] : [];
-          const removed = updatedFamily.splice(familyIndex, 1);
-          addAuditLog('DELETE_FAMILY_MEMBER', 'कुटुंब सदस्य हटवला', 'MEMBER_FAMILY', memberId, `${removed[0]?.marathiName || 'कुटुंब सदस्य'} ची नोंद काढण्यात आली.`);
-          return { ...m, familyMembers: updatedFamily };
-        }
-        return m;
-      })
-    );
-    addNotification('कुटुंब सदस्य नोंद हटवली', `कुटुंब सदस्याची नोंद काढण्यात आली.`, 'SYSTEM_ALERT', 'info');
+    setMembers(prev => prev.map(m => {
+      if (m.id === memberId && m.familyMembers) {
+        const updated = m.familyMembers.filter((_, idx) => idx !== familyIndex);
+        return { ...m, familyMembers: updated, familyMembersCount: Math.max(1, updated.length + 1) };
+      }
+      return m;
+    }));
+    addAuditLog('DELETE_FAMILY_MEMBER', 'कुटुंब सदस्य माहिती हटवली', 'MEMBER', memberId, `कुटुंब सदस्याची नोंद काढली.`);
   };
 
-  // Delete Document
-  const deleteDocument = (id: string) => {
-    const target = documents.find(d => d.id === id);
-    const docTitle = target?.title || 'कागदपत्र';
-    setDocuments(prev => prev.filter(d => d.id !== id));
-    addAuditLog('DELETE_DOCUMENT', 'कागदपत्र हटवले (Delete Document)', 'DOCUMENT', id, `${docTitle} कागदपत्र सिस्टीममधून हटवले.`);
-    addNotification('कागदपत्र हटवले', `${docTitle} सुरक्षितरीत्या हटवले गेले आहे.`, 'SYSTEM_ALERT', 'warning');
-    speakMarathi(`${docTitle} यशस्वीरित्या हटवण्यात आले.`);
+  // Savings CRUD
+  const recordSavings = (recordData: Omit<SavingsRecord, 'id' | 'receiptNumber' | 'recordedBy'>) => {
+    const id = `sav_${Date.now()}`;
+    const receiptNumber = `RCP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newRecord: SavingsRecord = {
+      ...recordData,
+      id,
+      receiptNumber,
+      recordedBy: currentUser.marathiName || currentUser.name
+    };
+    setSavings(prev => [newRecord, ...prev]);
+    setShgs(prev => prev.map(s => (s.id === newRecord.shgId ? { ...s, totalSavings: s.totalSavings + newRecord.totalAmount } : s)));
+    setMembers(prev => prev.map(m => (m.id === newRecord.memberId ? { ...m, totalSaved: m.totalSaved + newRecord.totalAmount } : m)));
+    
+    addAuditLog('RECORD_SAVINGS', 'बचत पावती नोंदवली', 'SAVINGS', id, `${newRecord.memberName} यांची ₹${newRecord.totalAmount} बचत पावती ${receiptNumber} नोंदवली.`);
+    addNotification('बचत पावती तयार', `${newRecord.memberName}: ₹${newRecord.totalAmount} (पावती: ${receiptNumber})`, 'SAVINGS_RECEIPT', 'success');
   };
 
-  // Delete Savings Record
   const deleteSavings = (id: string) => {
     const target = savings.find(s => s.id === id);
     if (!target) return;
     setSavings(prev => prev.filter(s => s.id !== id));
-    // Rollback member and SHG balance
-    setMembers(prev =>
-      prev.map(m => (m.id === target.memberId ? { ...m, totalSaved: Math.max(0, m.totalSaved - target.totalAmount) } : m))
-    );
-    setShgs(prev =>
-      prev.map(s => (s.id === target.shgId ? { ...s, totalSavings: Math.max(0, s.totalSavings - target.totalAmount) } : s))
-    );
-    addAuditLog('DELETE_SAVINGS', 'बचत पावती हटवली (Delete Savings)', 'SAVINGS', id, `${target.memberName} यांची ₹${target.totalAmount} ची पावती हटवली.`);
-    addNotification('बचत पावती हटवली', `पावती क्रमांक ${target.receiptNumber} हटवण्यात आली.`, 'SAVINGS_RECEIPT', 'warning');
-    speakMarathi(`बचत पावती यशस्वीरित्या हटवण्यात आली.`);
+    setShgs(prev => prev.map(s => (s.id === target.shgId ? { ...s, totalSavings: Math.max(0, s.totalSavings - target.totalAmount) } : s)));
+    setMembers(prev => prev.map(m => (m.id === target.memberId ? { ...m, totalSaved: Math.max(0, m.totalSaved - target.totalAmount) } : m)));
+    addAuditLog('DELETE_SAVINGS', 'बचत नोंद हटवली', 'SAVINGS', id, `${target.memberName} यांची ₹${target.totalAmount} बचत नोंद हटवली.`);
   };
 
-  // Delete Loan Record
+  // Loan CRUD
+  const disburseLoan = (loanData: Omit<LoanRecord, 'id' | 'remainingPrincipal' | 'totalPaid' | 'status' | 'approvedBy'>) => {
+    const id = `loan_${Date.now()}`;
+    const newLoan: LoanRecord = {
+      ...loanData,
+      id,
+      remainingPrincipal: loanData.principalAmount,
+      totalPaid: 0,
+      status: 'सक्रिय (Active)',
+      approvedBy: currentUser.marathiName || currentUser.name
+    };
+    setLoans(prev => [newLoan, ...prev]);
+    setMembers(prev => prev.map(m => (m.id === newLoan.memberId ? { ...m, activeLoanAmount: m.activeLoanAmount + newLoan.principalAmount } : m)));
+    setShgs(prev => prev.map(s => (s.id === newLoan.shgId ? { ...s, totalInternalLoansActive: s.totalInternalLoansActive + newLoan.principalAmount } : s)));
+    
+    addAuditLog('DISBURSE_LOAN', 'कर्ज वितरण नोंदवले', 'LOAN', id, `${newLoan.memberName} यांना ₹${newLoan.principalAmount} कर्ज मंजूर.`);
+    addNotification('कर्ज वितरित केले', `${newLoan.memberName} यांना ₹${newLoan.principalAmount} मंजूर झाले.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  const repayLoan = (loanId: string, amount: number) => {
+    const target = loans.find(l => l.id === loanId);
+    if (!target) return;
+    const newRemaining = Math.max(0, target.remainingPrincipal - amount);
+    const isClosed = newRemaining === 0;
+
+    setLoans(prev => prev.map(l => (l.id === loanId ? {
+      ...l,
+      remainingPrincipal: newRemaining,
+      totalPaid: l.totalPaid + amount,
+      status: isClosed ? 'पूर्ण परतफेड (Closed)' : l.status
+    } : l)));
+
+    setMembers(prev => prev.map(m => (m.id === target.memberId ? {
+      ...m,
+      activeLoanAmount: Math.max(0, m.activeLoanAmount - amount)
+    } : m)));
+
+    addAuditLog('REPAY_LOAN', 'कर्ज हप्ता भरणा', 'LOAN', loanId, `${target.memberName} यांनी ₹${amount} कर्ज हप्ता भरला.`);
+  };
+
   const deleteLoan = (id: string) => {
     const target = loans.find(l => l.id === id);
     if (!target) return;
     setLoans(prev => prev.filter(l => l.id !== id));
-    // Rollback active loan on member
-    setMembers(prev =>
-      prev.map(m => (m.id === target.memberId ? { ...m, activeLoanAmount: Math.max(0, m.activeLoanAmount - target.remainingPrincipal) } : m))
-    );
-    if (target.loanType.includes('अंतर्गत')) {
-      setShgs(prev =>
-        prev.map(s => (s.id === target.shgId ? { ...s, totalInternalLoansActive: Math.max(0, s.totalInternalLoansActive - target.remainingPrincipal) } : s))
-      );
-    }
-    addAuditLog('DELETE_LOAN', 'कर्ज नोंद हटवली (Delete Loan)', 'LOAN', id, `${target.memberName} यांचे कर्ज खाते हटवण्यात आले.`);
-    addNotification('कर्ज नोंद हटवली', `${target.memberName} यांचे कर्ज खाते हटवले गेले.`, 'LOAN_DUE', 'warning');
-    speakMarathi(`कर्ज नोंद यशस्वीरित्या हटवण्यात आली.`);
+    setMembers(prev => prev.map(m => (m.id === target.memberId ? { ...m, activeLoanAmount: Math.max(0, m.activeLoanAmount - target.remainingPrincipal) } : m)));
+    addAuditLog('DELETE_LOAN', 'कर्ज नोंद हटवली', 'LOAN', id, `${target.memberName} यांचे कर्ज हटवले.`);
   };
 
-  // Delete Meeting
+  // Meetings CRUD
+  const addMeeting = (meetingData: Omit<Meeting, 'id' | 'totalAttendance' | 'totalMembers' | 'totalSavingsCollected' | 'totalLoanCollected' | 'totalNewLoansSanctioned' | 'status'>) => {
+    const id = `mtg_${Date.now()}`;
+    const newMeeting: Meeting = {
+      ...meetingData,
+      id,
+      totalAttendance: 0,
+      totalMembers: meetingData.attendanceList.length || 10,
+      totalSavingsCollected: 0,
+      totalLoanCollected: 0,
+      totalNewLoansSanctioned: 0,
+      status: 'नियोजित (Scheduled)'
+    };
+    setMeetings(prev => [newMeeting, ...prev]);
+    addAuditLog('CREATE_MEETING', 'नवीन सभा नियोजित', 'MEETING', id, `${newMeeting.shgName} सभा दिनांक ${newMeeting.meetingDate}.`);
+  };
+
+  const completeMeeting = (meetingId: string, resolution: string, photoUrl?: string) => {
+    setMeetings(prev => prev.map(m => (m.id === meetingId ? {
+      ...m,
+      status: 'पूर्ण (Completed)',
+      meetingResolutionText: resolution,
+      meetingPhoto: photoUrl || m.meetingPhoto
+    } : m)));
+    addAuditLog('COMPLETE_MEETING', 'सभा संपन्न व ठराव नोंद', 'MEETING', meetingId, `सभेचा ठराव यशस्वीरित्या जतन केला.`);
+  };
+
   const deleteMeeting = (id: string) => {
     const target = meetings.find(m => m.id === id);
-    const shgName = target?.shgName || 'मासिक सभा';
     setMeetings(prev => prev.filter(m => m.id !== id));
-    addAuditLog('DELETE_MEETING', 'मासिक सभा नोंद हटवली (Delete Meeting)', 'MEETING', id, `${shgName} ची सभा नोंद काढण्यात आली.`);
-    addNotification('सभा नोंद हटवली', `${shgName} ची सभा नोंद हटवली.`, 'MEETING_REMINDER', 'warning');
-    speakMarathi(`मासिक सभा नोंद यशस्वीरित्या हटवण्यात आली.`);
+    addAuditLog('DELETE_MEETING', 'सभा नोंद हटवली', 'MEETING', id, `${target?.shgName || ''} सभा नोंद हटवली.`);
   };
 
-  // Delete Attendance Record from a meeting
   const deleteAttendance = (meetingId: string, memberId: string) => {
-    setMeetings(prev =>
-      prev.map(m => {
-        if (m.id === meetingId) {
-          const updatedList = m.attendanceList.filter(a => a.memberId !== memberId);
-          const presentCount = updatedList.filter(a => a.status.includes('उपस्थित')).length;
-          return {
-            ...m,
-            attendanceList: updatedList,
-            totalAttendance: presentCount
-          };
-        }
-        return m;
-      })
-    );
-    addAuditLog('DELETE_ATTENDANCE', 'उपस्थिती नोंद हटवली', 'ATTENDANCE', meetingId, `सदस्य उपस्थिती नोंद काढण्यात आली.`);
-    addNotification('उपस्थिती नोंद काढली', `सभेतील उपस्थिती नोंद अपडेट केली.`, 'SYSTEM_ALERT', 'info');
+    setMeetings(prev => prev.map(m => {
+      if (m.id === meetingId) {
+        return {
+          ...m,
+          attendanceList: m.attendanceList.filter(a => a.memberId !== memberId),
+          totalAttendance: Math.max(0, m.totalAttendance - 1)
+        };
+      }
+      return m;
+    }));
   };
 
-  // Delete Field Visit
+  // Field Visits CRUD
+  const addFieldVisit = (visitData: Omit<FieldVisit, 'id' | 'crpId' | 'crpName'>) => {
+    const id = `visit_${Date.now()}`;
+    const newVisit: FieldVisit = {
+      ...visitData,
+      id,
+      crpId: currentUser.id,
+      crpName: currentUser.marathiName || currentUser.name
+    };
+    setFieldVisits(prev => [newVisit, ...prev]);
+    addAuditLog('CREATE_FIELD_VISIT', 'क्षेत्रीय भेट GPS नोंदवली', 'FIELD_VISIT', id, `${newVisit.villageName} - ${newVisit.purpose}`);
+  };
+
   const deleteFieldVisit = (id: string) => {
-    const target = fieldVisits.find(v => v.id === id);
     setFieldVisits(prev => prev.filter(v => v.id !== id));
-    addAuditLog('DELETE_FIELD_VISIT', 'क्षेत्रीय भेट नोंद हटवली', 'FIELD_VISIT', id, `${target?.villageName || ''} ची भेट नोंद काढली.`);
-    addNotification('क्षेत्रीय भेट हटवली', `भेट नोंद यशस्वीरित्या हटवली.`, 'SYSTEM_ALERT', 'warning');
-    speakMarathi(`क्षेत्रीय भेट नोंद हटवण्यात आली.`);
+    addAuditLog('DELETE_FIELD_VISIT', 'क्षेत्रीय भेट हटवली', 'FIELD_VISIT', id, `क्षेत्रीय भेट नोंद काढण्यात आली.`);
   };
 
-  // Delete Business
+  // Business CRUD
+  const addBusiness = (bizData: Omit<BusinessEnterprise, 'id'>) => {
+    const id = `biz_${Date.now()}`;
+    const newBiz: BusinessEnterprise = { ...bizData, id };
+    setBusinesses(prev => [newBiz, ...prev]);
+    addAuditLog('CREATE_BUSINESS', 'उद्योग/व्यवसाय नोंदवला', 'BUSINESS', id, `${newBiz.businessName} - ${newBiz.memberName}`);
+  };
+
   const deleteBusiness = (id: string) => {
-    const target = businesses.find(b => b.id === id);
     setBusinesses(prev => prev.filter(b => b.id !== id));
-    addAuditLog('DELETE_BUSINESS', 'उपजीविका उद्योग हटवला', 'BUSINESS', id, `${target?.businessName || ''} उद्योग नोंद काढली.`);
-    addNotification('उपजीविका नोंद हटवली', `${target?.businessName || ''} ची नोंद हटवली.`, 'SYSTEM_ALERT', 'warning');
+    addAuditLog('DELETE_BUSINESS', 'व्यवसाय नोंद हटवली', 'BUSINESS', id, `उद्योग नोंद काढण्यात आली.`);
   };
 
-  // Delete Scheme
+  // Schemes CRUD
+  const applyForScheme = (appData: Omit<MemberSchemeApplication, 'id' | 'trackingNumber' | 'status'>) => {
+    const id = `app_${Date.now()}`;
+    const trackingNumber = `MSRLM-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+    const newApp: MemberSchemeApplication = {
+      ...appData,
+      id,
+      trackingNumber,
+      status: 'अर्ज केला (Applied)'
+    };
+    setSchemeApplications(prev => [newApp, ...prev]);
+    addAuditLog('APPLY_SCHEME', 'शासकीय योजनेसाठी अर्ज', 'SCHEME_APP', id, `${newApp.memberName} चा ${newApp.schemeName} साठी अर्ज.`);
+  };
+
   const deleteScheme = (id: string) => {
-    const target = govtSchemes.find(s => s.id === id);
     setGovtSchemes(prev => prev.filter(s => s.id !== id));
-    addAuditLog('DELETE_SCHEME', 'शासकीय योजना हटवली', 'SCHEME', id, `${target?.nameMarathi || ''} योजना काढण्यात आली.`);
-    addNotification('योजना हटवली', `${target?.nameMarathi || ''} योजना हटवली गेली.`, 'SYSTEM_ALERT', 'warning');
   };
 
-  // Delete Scheme Application
   const deleteSchemeApplication = (id: string) => {
-    const target = schemeApplications.find(a => a.id === id);
     setSchemeApplications(prev => prev.filter(a => a.id !== id));
-    addAuditLog('DELETE_SCHEME_APP', 'योजना अर्ज हटवला', 'SCHEME_APP', id, `${target?.memberName || ''} चा ${target?.schemeName || ''} अर्ज हटवला.`);
-    addNotification('योजना अर्ज हटवला', `अर्ज नोंद हटवण्यात आली.`, 'SYSTEM_ALERT', 'warning');
   };
 
-  // Delete Training
+  // Training CRUD
+  const addTraining = (trainingData: Omit<TrainingRecord, 'id'>) => {
+    const id = `trg_${Date.now()}`;
+    const newTrg: TrainingRecord = { ...trainingData, id };
+    setTrainings(prev => [newTrg, ...prev]);
+    addAuditLog('CREATE_TRAINING', 'प्रशिक्षण सत्र आयोजित', 'TRAINING', id, `${newTrg.marathiTopic} प्रशिक्षण.`);
+  };
+
   const deleteTraining = (id: string) => {
-    const target = trainings.find(t => t.id === id);
     setTrainings(prev => prev.filter(t => t.id !== id));
-    addAuditLog('DELETE_TRAINING', 'प्रशिक्षण नोंद हटवली', 'TRAINING', id, `${target?.marathiTopic || ''} सत्र हटवले.`);
-    addNotification('प्रशिक्षण नोंद हटवली', `प्रशिक्षण सत्र काढण्यात आले.`, 'SYSTEM_ALERT', 'warning');
   };
 
-  // Delete Task
+  // Tasks CRUD
+  const toggleTask = (taskId: string) => {
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, completed: !t.completed } : t)));
+    addAuditLog('TOGGLE_TASK', 'कार्य स्थिती बदलली', 'TASK', taskId, `कार्याची स्थिती पूर्ण/अपूर्ण नोंदवली.`);
+  };
+
+  const addTask = (taskData: Omit<TaskReminder, 'id' | 'completed'>) => {
+    const id = `task_${Date.now()}`;
+    const newTask: TaskReminder = { ...taskData, id, completed: false };
+    setTasks(prev => [newTask, ...prev]);
+    addAuditLog('CREATE_TASK', 'नवीन कार्य जोडले', 'TASK', id, `${newTask.marathiTitle}`);
+  };
+
   const deleteTask = (id: string) => {
-    const target = tasks.find(t => t.id === id);
     setTasks(prev => prev.filter(t => t.id !== id));
-    addAuditLog('DELETE_TASK', 'कार्य हटवले', 'TASK', id, `${target?.marathiTitle || ''} कार्य काढण्यात आले.`);
-    addNotification('कार्य हटवले', `कार्य यशस्वीरित्या हटवले.`, 'SYSTEM_ALERT', 'info');
   };
 
-  // Delete Notification
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  // Documents CRUD
+  const addDocument = (docData: Omit<DocumentItem, 'id' | 'uploadDate' | 'uploadedBy' | 'status'>) => {
+    const id = `doc_${Date.now()}`;
+    const newDoc: DocumentItem = {
+      ...docData,
+      id,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: currentUser.marathiName || currentUser.name,
+      status: 'सत्यापित (Verified)'
+    };
+    setDocuments(prev => [newDoc, ...prev]);
+    addAuditLog('UPLOAD_DOC', 'कागदपत्र अपलोड केले', 'DOCUMENT', id, `${newDoc.entityName}: ${newDoc.title}`);
+  };
+
+  const replaceDocument = (id: string, newFileUrl: string, newTitle?: string, remarks?: string) => {
+    setDocuments(prev => prev.map(d => (d.id === id ? {
+      ...d,
+      fileUrl: newFileUrl,
+      title: newTitle || d.title,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: currentUser.marathiName || currentUser.name,
+      status: 'सत्यापित (Verified)',
+      remarks: remarks || d.remarks
+    } : d)));
+    addAuditLog('REPLACE_DOC', 'कागदपत्र बदलले (Replaced)', 'DOCUMENT', id, `कागदपत्र फाइल बदलली गेली.`);
+  };
+
+  const verifyDocument = (id: string, newStatus: DocumentItem['status'], remarks?: string) => {
+    setDocuments(prev => prev.map(d => (d.id === id ? { ...d, status: newStatus, remarks: remarks || d.remarks } : d)));
+  };
+
+  const deleteDocument = (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
   };
 
   const markNotificationRead = (id: string) => {
@@ -779,6 +1147,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const clearAllNotifications = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   return (
@@ -791,7 +1163,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         toggleOnline,
         offlineQueueCount,
         syncOfflineData,
+        districts,
         users,
+        blockManagers,
+        loginSessions,
         blocks,
         villages,
         shgs,
@@ -808,6 +1183,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         tasks,
         notifications,
         auditLogs,
+        filteredSHGs,
+        filteredMembers,
+        filteredSavings,
+        filteredLoans,
+        filteredMeetings,
+        filteredFieldVisits,
+        filteredTasks,
         selectedShgId,
         setSelectedShgId,
         selectedMemberId,
@@ -844,6 +1226,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         replaceDocument,
         verifyDocument,
         deleteDocument,
+        addBlockManager,
+        updateBlockManager,
+        toggleBlockManagerStatus,
+        resetBlockManagerPassword,
+        deleteBlockManager,
+        addCRP,
+        updateCRP,
+        toggleCRPStatus,
+        resetCRPPassword,
+        deleteCRP,
+        getCRPPerformanceSummaries,
+        logActivity,
+        recordUserLogin,
+        recordUserLogout,
         markNotificationRead,
         clearAllNotifications,
         deleteNotification,
@@ -864,4 +1260,3 @@ export const useApp = () => {
   }
   return context;
 };
-

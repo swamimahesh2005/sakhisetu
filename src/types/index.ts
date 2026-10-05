@@ -1,15 +1,108 @@
 export type Role = 'ADMIN' | 'BLOCK_MANAGER' | 'CRP';
 
-export interface User {
+export interface District {
   id: string;
   name: string;
   marathiName: string;
+  state: string;
+  totalBlocks: number;
+  totalSHGs: number;
+  totalMembers: number;
+  activeCRPs: number;
+}
+
+export interface User {
+  id: string;
+  username?: string;
+  name: string;
+  marathiName: string;
   mobile: string;
+  email?: string;
+  passwordHash?: string;
   role: Role;
+  districtId?: string;
+  districtName?: string;
   blockId?: string;
   blockName?: string;
+  blockManagerId?: string;
   assignedVillageIds?: string[];
   avatar?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+  lastLoginAt?: string;
+  lastActiveAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  mustChangePassword?: boolean;
+}
+
+export interface CRPProfile {
+  userId: string;
+  crpId: string;
+  assignedBlockId: string;
+  assignedBlockName: string;
+  assignedVillage: string;
+  assignedVillageIds: string[];
+  blockManagerId?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  lastActiveAt?: string;
+  isCurrentlyLoggedIn?: boolean;
+}
+
+export interface BlockManagerProfile {
+  userId: string;
+  managerId: string;
+  name: string;
+  marathiName: string;
+  mobile: string;
+  email: string;
+  districtId: string;
+  districtName: string;
+  blockId: string;
+  blockName: string;
+  assignedArea: string;
+  assignedCrpCount: number;
+  assignedShgCount: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  lastLoginAt?: string;
+  createdAt: string;
+}
+
+export interface CRPPerformanceSummary {
+  crpId: string;
+  userId?: string;
+  crpName: string;
+  crpMarathiName: string;
+  mobile: string;
+  email?: string;
+  villageName: string;
+  districtId?: string;
+  districtName?: string;
+  blockId?: string;
+  blockName?: string;
+  blockManagerId?: string;
+  assignedSHGsCount: number;
+  totalMembersCount: number;
+  tasksAssigned: number;
+  tasksCompleted: number;
+  tasksPending: number;
+  fieldVisitsCompleted: number;
+  meetingsCompleted: number;
+  reportsSubmitted: number;
+  lastLogin: string;
+  lastActivity: string;
+  isCurrentlyLoggedIn: boolean;
+  status: 'ACTIVE' | 'RECENTLY_ACTIVE' | 'INACTIVE';
+}
+
+export interface LoginSession {
+  sessionId: string;
+  userId: string;
+  username: string;
+  role: Role;
+  loginTime: string;
+  lastPingTime: string;
+  isActive: boolean;
+  deviceInfo?: string;
 }
 
 export interface Village {
@@ -33,6 +126,7 @@ export interface Block {
   name: string;
   marathiName: string;
   district: string;
+  districtId?: string;
   totalVillages: number;
   totalSHGs: number;
   totalMembers: number;

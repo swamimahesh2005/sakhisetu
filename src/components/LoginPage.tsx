@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { User } from '@/types';
 import { INITIAL_USERS } from '@/lib/seed-data';
+import { verifyPassword } from '@/lib/auth-crypto';
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
@@ -30,9 +31,77 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [forgotMobile, setForgotMobile] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
-  // Authenticate user with auto-role detection
-  const authenticateUser = (identifier: string, pwd?: string, isOtpAuth = false) => {
-    const cleanId = identifier.trim().toLowerCase();
+  // Authenticate user with auto-role detection and password verification
+  const authenticateUser = async (identifier: string, pwd?: string, isOtpAuth = false): Promise<User | null> => {
+    if (!identifier) return null;
+    const rawId = identifier.trim();
+    const cleanId = rawId.toLowerCase();
+    const noSpaceCleanId = cleanId.replace(/\s+/g, '');
+
+    // Canonical Demo Users from INITIAL_USERS
+    const crpUser = INITIAL_USERS.find(u => u.role === 'CRP' && u.id === 'crp_nagin') || INITIAL_USERS[0];
+    const bmUser = INITIAL_USERS.find(u => u.role === 'BLOCK_MANAGER') || INITIAL_USERS[1];
+    const adminUser = INITIAL_USERS.find(u => u.role === 'ADMIN') || INITIAL_USERS[2];
+
+    // 1. Direct Block Manager Identification
+    if (
+      noSpaceCleanId.includes('स्वामी') ||
+      noSpaceCleanId.includes('महेश') ||
+      noSpaceCleanId.includes('संग्राम') ||
+      noSpaceCleanId.includes('swami') ||
+      noSpaceCleanId.includes('blockmanager') ||
+      cleanId === 'bm' ||
+      cleanId === 'jalkot' ||
+      cleanId === '9881123456' ||
+      cleanId === 'bm_swami' ||
+      cleanId === 'blockmanager001'
+    ) {
+      if (isOtpAuth) return bmUser;
+      if (pwd) {
+        const isMatch = await verifyPassword(pwd, bmUser.passwordHash);
+        if (isMatch) return bmUser;
+      }
+      return null;
+    }
+
+    // 2. Direct CRP Identification
+    if (
+      noSpaceCleanId.includes('नागीण') ||
+      noSpaceCleanId.includes('नागिन') ||
+      noSpaceCleanId.includes('मठदेवरू') ||
+      noSpaceCleanId.includes('nagin') ||
+      cleanId === 'crp001' ||
+      cleanId === 'crp' ||
+      cleanId === '8806594798' ||
+      cleanId === 'crp_nagin'
+    ) {
+      if (isOtpAuth) return crpUser;
+      if (pwd) {
+        const isMatch = await verifyPassword(pwd, crpUser.passwordHash);
+        if (isMatch) return crpUser;
+      }
+      return null;
+    }
+
+    // 3. Direct Admin Identification
+    if (
+      noSpaceCleanId.includes('विजयमाला') ||
+      noSpaceCleanId.includes('वाघमारे') ||
+      noSpaceCleanId.includes('विठ्ठलराव') ||
+      noSpaceCleanId.includes('vijaymala') ||
+      cleanId === 'admin001' ||
+      cleanId === 'admin' ||
+      cleanId === '9422001122' ||
+      cleanId === 'admin_vijaymala' ||
+      cleanId === 'districtadmin'
+    ) {
+      if (isOtpAuth) return adminUser;
+      if (pwd) {
+        const isMatch = await verifyPassword(pwd, adminUser.passwordHash);
+        if (isMatch) return adminUser;
+      }
+      return null;
+    }
 
     // Look up existing registered users in localStorage or seed data
     let usersList: User[] = INITIAL_USERS;
@@ -47,34 +116,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
     }
 
-    // Match by mobile or username/id or name
+    // General match by username, mobile, ID, or name
     const foundUser = usersList.find(
       u =>
+        u.username?.toLowerCase() === cleanId ||
         u.mobile.toLowerCase() === cleanId ||
         u.id.toLowerCase() === cleanId ||
-        u.name.toLowerCase().replace(/\s+/g, '') === cleanId.replace(/\s+/g, '') ||
-        (cleanId === 'crp' && u.role === 'CRP') ||
-        (cleanId === 'bm' && u.role === 'BLOCK_MANAGER') ||
-        (cleanId === 'admin' && u.role === 'ADMIN') ||
-        (cleanId === 'sumitra' && u.role === 'CRP') ||
-        (cleanId === 'rajesh' && u.role === 'BLOCK_MANAGER') ||
-        (cleanId === 'sunita' && u.role === 'ADMIN')
+        u.name.toLowerCase().replace(/\s+/g, '') === noSpaceCleanId ||
+        u.marathiName.toLowerCase().replace(/\s+/g, '').includes(noSpaceCleanId)
     );
 
     if (foundUser) {
-      return foundUser;
+      if (isOtpAuth) return foundUser;
+      if (pwd) {
+        const isMatch = await verifyPassword(pwd, foundUser.passwordHash);
+        if (isMatch) return foundUser;
+      }
+      return null;
     }
 
     // If a valid 10-digit mobile number is entered, create dynamic CRP user session
     if (/^\d{10}$/.test(cleanId)) {
       const newUser: User = {
         id: `usr_${Date.now()}`,
+        username: `crp_${cleanId.slice(-4)}`,
         name: `User ${cleanId.slice(-4)}`,
         marathiName: `समूह सखी (${cleanId})`,
         mobile: cleanId,
         role: 'CRP',
-        blockId: 'blk_haveli',
-        blockName: 'हवेली (पुणे)',
+        blockId: 'jalkot',
+        blockName: 'जळकोट (लातूर)',
+        districtId: 'dist_latur',
+        districtName: 'लातूर जिल्हा (Latur)',
+        status: 'ACTIVE',
         avatar: '👩🏽‍💼'
       };
       return newUser;
@@ -83,7 +157,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     return null;
   };
 
-  const handlePasswordLogin = (e: React.FormEvent) => {
+  const handleQuickDemoLogin = async (username: string, pass: string) => {
+    setLoginMode('PASSWORD');
+    setMobileOrUsername(username);
+    setPassword(pass);
+    setErrorMessage('');
+    setIsLoading(true);
+
+    try {
+      const user = await authenticateUser(username, pass, false);
+      setIsLoading(false);
+      if (user) {
+        onLoginSuccess(user);
+      } else {
+        setErrorMessage('डेमो लॉगिन करताना अडचण आली.');
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setErrorMessage('त्रुटी आली.');
+    }
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -99,16 +194,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const user = await authenticateUser(mobileOrUsername, password, false);
       setIsLoading(false);
-      const user = authenticateUser(mobileOrUsername, password, false);
 
       if (user) {
         onLoginSuccess(user);
       } else {
-        setErrorMessage('अवैध मोबाईल क्रमांक किंवा पासवर्ड. कृपया पुन्हा तपासा. (Invalid credentials)');
+        setErrorMessage('अवैध मोबाईल क्रमांक/युझरनेम किंवा पासवर्ड. कृपया पुन्हा तपासा. (Invalid credentials)');
       }
-    }, 600);
+    } catch (err) {
+      setIsLoading(false);
+      setErrorMessage('लॉगिन करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
+    }
   };
 
   const handleSendOtp = (e: React.FormEvent) => {
@@ -128,7 +226,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }, 500);
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -138,15 +236,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const user = await authenticateUser(mobileOrUsername, '', true);
       setIsLoading(false);
-      const user = authenticateUser(mobileOrUsername, '', true);
       if (user) {
         onLoginSuccess(user);
       } else {
         setErrorMessage('अवैध OTP. कृपया पुन्हा तपासा. (Invalid OTP)');
       }
-    }, 600);
+    } catch (err) {
+      setIsLoading(false);
+      setErrorMessage('सत्यापनात त्रुटी आली.');
+    }
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {
@@ -161,21 +262,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden font-sans bg-emerald-950">
       {/* Background Image: Rural Indian Women SHG Empowerment */}
-      <div 
+      <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 scale-105"
         style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1596727147705-61a532a659bd?q=80&w=2000&auto=format&fit=crop')`,
+          backgroundImage: `url('https://ddindia.co.in/wp-content/uploads/2026/08/ChatGPT-Image-Aug-7-2026-04_40_22-PM-1024x683.png')`,
         }}
       >
         {/* Soft Dark & Emerald Gradient Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-emerald-950/85 to-teal-950/80 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
-        <div className="absolute inset-0 backdrop-blur-[2px]" />
+
       </div>
 
       {/* Main Container */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
-        
+
         {/* Left Side: Brand Narrative & Digital SHG Highlights (Visible on Large screens) */}
         <div className="w-full lg:w-7/12 text-white space-y-6 text-center lg:text-left">
           {/* Government / Digital India Badges */}
@@ -238,7 +337,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* Right Side: Glassmorphic Login Card */}
         <div className="w-full lg:w-5/12 max-w-md mx-auto">
           <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/40 border border-white/60 relative overflow-hidden transition-all duration-300">
-            
+
             {/* Top Accent Strip */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500" />
 
@@ -263,11 +362,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   setLoginMode('PASSWORD');
                   setErrorMessage('');
                 }}
-                className={`flex-1 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                  loginMode === 'PASSWORD'
-                    ? 'bg-white text-emerald-900 shadow-md font-black'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`flex-1 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${loginMode === 'PASSWORD'
+                  ? 'bg-white text-emerald-900 shadow-md font-black'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 <span>🔑 पासवर्डने लॉगिन</span>
               </button>
@@ -278,11 +376,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   setLoginMode('OTP');
                   setErrorMessage('');
                 }}
-                className={`flex-1 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                  loginMode === 'OTP'
-                    ? 'bg-white text-emerald-900 shadow-md font-black'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`flex-1 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${loginMode === 'OTP'
+                  ? 'bg-white text-emerald-900 shadow-md font-black'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 <span>📲 OTP ने लॉगिन</span>
               </button>
@@ -475,7 +572,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             {/* Registration Link */}
-            <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <div className="mt-5 pt-3.5 border-t border-gray-100 text-center">
               <p className="text-xs text-gray-600 font-medium">
                 नवीन खाते तयार करायचे आहे का?{' '}
                 <button
@@ -486,6 +583,116 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   नवीन नोंदणी करा (Register)
                 </button>
               </p>
+            </div>
+
+            {/* Quick Demo Logins Section for Instant Testing */}
+            <div className="mt-5 pt-4 border-t border-dashed border-emerald-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black uppercase text-emerald-900 tracking-wide flex items-center gap-1">
+                  ⚡ चाचणीसाठी डेमो लॉगिन (Quick Demo Logins)
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  1-क्लिक लॉगिन
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 text-left">
+                {/* 1. CRP Demo Button */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemoLogin('crp001', 'Crp@123')}
+                  className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 rounded-2xl flex items-center justify-between transition group shadow-sm text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                      👩🏽‍💼
+                    </span>
+                    <div>
+                      <div className="font-black text-gray-900 leading-tight">
+                        नागीण संग्राम मठदेवरू <span className="text-emerald-800 text-[10px] font-bold">(CRP)</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                        युझर: <strong className="text-gray-800">crp001</strong> | पास: <strong className="text-gray-800">Crp@123</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-emerald-800 group-hover:translate-x-1 transition">
+                    लॉगिन ➔
+                  </span>
+                </button>
+
+                {/* 2. Block Manager A Demo Button */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemoLogin('blockmanager001', 'BL@123')}
+                  className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-300 rounded-2xl flex items-center justify-between transition group shadow-sm text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                      👨🏽‍💼
+                    </span>
+                    <div>
+                      <div className="font-black text-gray-900 leading-tight">
+                        स्वामी महेश संग्राम <span className="text-blue-800 text-[10px] font-bold">(Block Manager A - जळकोट)</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                        युझर: <strong className="text-gray-800">blockmanager001</strong> | पास: <strong className="text-gray-800">BL@123</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-blue-800 group-hover:translate-x-1 transition">
+                    लॉगिन ➔
+                  </span>
+                </button>
+
+                {/* 2B. Block Manager B Demo Button */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemoLogin('blockmanager002', 'BL@123')}
+                  className="p-2.5 bg-gradient-to-r from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 border border-teal-300 rounded-2xl flex items-center justify-between transition group shadow-sm text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                      👨🏽‍💼
+                    </span>
+                    <div>
+                      <div className="font-black text-gray-900 leading-tight">
+                        राजेश विठ्ठल शिंदे <span className="text-teal-800 text-[10px] font-bold">(Block Manager B - हवेली, पुणे)</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                        युझर: <strong className="text-gray-800">blockmanager002</strong> | पास: <strong className="text-gray-800">BL@123</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-teal-800 group-hover:translate-x-1 transition">
+                    लॉगिन ➔
+                  </span>
+                </button>
+
+                {/* 3. Admin Demo Button */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemoLogin('admin001', 'Admin@123')}
+                  className="p-2.5 bg-gradient-to-r from-purple-50 to-fuchsia-50 hover:from-purple-100 hover:to-fuchsia-100 border border-purple-300 rounded-2xl flex items-center justify-between transition group shadow-sm text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                      🏛️
+                    </span>
+                    <div>
+                      <div className="font-black text-gray-900 leading-tight">
+                        विजयमाला विठ्ठलराव वाघमारे <span className="text-purple-800 text-[10px] font-bold">(Admin)</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                        युझर: <strong className="text-gray-800">admin001</strong> | पास: <strong className="text-gray-800">Admin@123</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-purple-800 group-hover:translate-x-1 transition">
+                    लॉगिन ➔
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Security Guarantee Note */}
