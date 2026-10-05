@@ -8,8 +8,6 @@ import {
   CalendarIcon,
   FileTextIcon,
   BanknoteIcon,
-  MapPinIcon,
-  AwardIcon
 } from './icons';
 
 interface BottomNavProps {
@@ -28,7 +26,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-orange-200 shadow-2xl py-1.5 px-2 md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-emerald-100 shadow-2xl py-1.5 px-2 md:hidden">
       <div className="flex justify-around items-center">
         {tabs.map(tab => {
           const Icon = tab.icon;
@@ -39,8 +37,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
                 isActive
-                  ? 'text-orange-700 font-bold bg-orange-100/70 scale-105'
-                  : 'text-gray-500 hover:text-orange-600'
+                  ? 'text-emerald-800 font-bold bg-emerald-50 scale-105'
+                  : 'text-gray-500 hover:text-emerald-700'
               }`}
             >
               <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : ''}`} />

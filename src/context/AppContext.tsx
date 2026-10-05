@@ -77,7 +77,7 @@ interface AppContextType {
   selectedMemberId: string | null;
   setSelectedMemberId: (id: string | null) => void;
 
-  // CRUD Operations
+  // CRUD & Delete Operations
   addSHG: (shg: Omit<SHG, 'id' | 'code' | 'totalSavings' | 'totalInternalLoansActive' | 'totalMembersCount'>) => void;
   updateSHG: (id: string, updates: Partial<SHG>) => void;
   deleteSHG: (id: string) => void;
@@ -85,24 +85,46 @@ interface AppContextType {
   addMember: (member: Omit<Member, 'id' | 'totalSaved' | 'activeLoanAmount' | 'joiningDate'>) => void;
   updateMember: (id: string, updates: Partial<Member>) => void;
   deleteMember: (id: string) => void;
+  deleteFamilyMember: (memberId: string, familyIndex: number) => void;
 
   recordSavings: (record: Omit<SavingsRecord, 'id' | 'receiptNumber' | 'recordedBy'>) => void;
+  deleteSavings: (id: string) => void;
+
   disburseLoan: (loan: Omit<LoanRecord, 'id' | 'remainingPrincipal' | 'totalPaid' | 'status' | 'approvedBy'>) => void;
   repayLoan: (loanId: string, amount: number, notes?: string) => void;
+  deleteLoan: (id: string) => void;
 
   addMeeting: (meeting: Omit<Meeting, 'id' | 'totalAttendance' | 'totalMembers' | 'totalSavingsCollected' | 'totalLoanCollected' | 'totalNewLoansSanctioned' | 'status'>) => void;
   completeMeeting: (meetingId: string, resolution: string, photoUrl?: string) => void;
+  deleteMeeting: (id: string) => void;
+  deleteAttendance: (meetingId: string, memberId: string) => void;
 
   addFieldVisit: (visit: Omit<FieldVisit, 'id' | 'crpId' | 'crpName'>) => void;
+  deleteFieldVisit: (id: string) => void;
+
   addBusiness: (biz: Omit<BusinessEnterprise, 'id'>) => void;
+  deleteBusiness: (id: string) => void;
+
   applyForScheme: (app: Omit<MemberSchemeApplication, 'id' | 'trackingNumber' | 'status'>) => void;
+  deleteScheme: (id: string) => void;
+  deleteSchemeApplication: (id: string) => void;
+
   addTraining: (training: Omit<TrainingRecord, 'id'>) => void;
+  deleteTraining: (id: string) => void;
+
   toggleTask: (taskId: string) => void;
   addTask: (task: Omit<TaskReminder, 'id' | 'completed'>) => void;
+  deleteTask: (id: string) => void;
 
+  // Documents: Upload, Replace, Verify & Delete
   addDocument: (doc: Omit<DocumentItem, 'id' | 'uploadDate' | 'uploadedBy' | 'status'>) => void;
+  replaceDocument: (id: string, newFileUrl: string, newTitle?: string, remarks?: string) => void;
+  verifyDocument: (id: string, newStatus: DocumentItem['status'], remarks?: string) => void;
+  deleteDocument: (id: string) => void;
+
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
+  deleteNotification: (id: string) => void;
   speakText: (text: string) => void;
 
   // Search
@@ -112,7 +134,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'sakhisetu_v1_data';
+const STORAGE_KEY = 'sakhisetu_v2_data';
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -149,18 +171,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.shgs) setShgs(parsed.shgs);
-          if (parsed.members) setMembers(parsed.members);
-          if (parsed.savings) setSavings(parsed.savings);
-          if (parsed.loans) setLoans(parsed.loans);
-          if (parsed.meetings) setMeetings(parsed.meetings);
-          if (parsed.fieldVisits) setFieldVisits(parsed.fieldVisits);
-          if (parsed.businesses) setBusinesses(parsed.businesses);
-          if (parsed.tasks) setTasks(parsed.tasks);
-          if (parsed.documents) setDocuments(parsed.documents);
-          if (parsed.schemeApplications) setSchemeApplications(parsed.schemeApplications);
-          if (parsed.notifications) setNotifications(parsed.notifications);
-          if (parsed.auditLogs) setAuditLogs(parsed.auditLogs);
+          if (parsed.shgs?.length) setShgs(parsed.shgs);
+          if (parsed.members?.length) setMembers(parsed.members);
+          if (parsed.savings?.length) setSavings(parsed.savings);
+          if (parsed.loans?.length) setLoans(parsed.loans);
+          if (parsed.meetings?.length) setMeetings(parsed.meetings);
+          if (parsed.fieldVisits?.length) setFieldVisits(parsed.fieldVisits);
+          if (parsed.businesses?.length) setBusinesses(parsed.businesses);
+          if (parsed.tasks?.length) setTasks(parsed.tasks);
+          if (parsed.documents?.length) setDocuments(parsed.documents);
+          if (parsed.schemeApplications?.length) setSchemeApplications(parsed.schemeApplications);
+          if (parsed.notifications?.length) setNotifications(parsed.notifications);
+          if (parsed.auditLogs?.length) setAuditLogs(parsed.auditLogs);
         }
       } catch (err) {
         console.error('Failed to load local storage state:', err);
@@ -268,7 +290,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     speakMarathi(text);
   };
 
-  // SHG CRUD
+  // SHG CRUD (NO DELETE)
   const addSHG = (shgData: Omit<SHG, 'id' | 'code' | 'totalSavings' | 'totalInternalLoansActive' | 'totalMembersCount'>) => {
     const newId = 'shg_' + Date.now();
     const code = `SHG-MH-${Math.floor(100 + Math.random() * 900)}`;
@@ -291,13 +313,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     addAuditLog('UPDATE_SHG', 'बचत गट माहिती अद्ययावत', 'SHG', id, `बचत गट तपशील अपडेट केला.`);
   };
 
-  const deleteSHG = (id: string) => {
-    const target = shgs.find(s => s.id === id);
-    setShgs(prev => prev.filter(s => s.id !== id));
-    addAuditLog('DELETE_SHG', 'बचत गट हटवला', 'SHG', id, `बचत गट ${target?.marathiName || id} काढला गेला.`);
-  };
-
-  // Member CRUD
+  // Member CRUD (NO DELETE)
   const addMember = (memberData: Omit<Member, 'id' | 'totalSaved' | 'activeLoanAmount' | 'joiningDate'>) => {
     const newId = 'mem_' + Date.now();
     const newMember: Member = {
@@ -322,17 +338,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateMember = (id: string, updates: Partial<Member>) => {
     setMembers(prev => prev.map(m => (m.id === id ? { ...m, ...updates } : m)));
     addAuditLog('UPDATE_MEMBER', 'सदस्य माहिती अद्ययावत', 'MEMBER', id, `सदस्य तपशील अपडेट केला.`);
-  };
-
-  const deleteMember = (id: string) => {
-    const target = members.find(m => m.id === id);
-    if (target) {
-      setShgs(prev =>
-        prev.map(s => (s.id === target.shgId ? { ...s, totalMembersCount: Math.max(0, s.totalMembersCount - 1) } : s))
-      );
-    }
-    setMembers(prev => prev.filter(m => m.id !== id));
-    addAuditLog('DELETE_MEMBER', 'सदस्य काढला', 'MEMBER', id, `सदस्य ${target?.marathiName || id} हटवला गेला.`);
   };
 
   // Savings
@@ -457,7 +462,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     setMeetings(prev => [newMeeting, ...prev]);
 
-    // Update SHG savings and loans accordingly
+    // Update SHG savings accordingly
     if (totalSavings > 0) {
       setShgs(prev =>
         prev.map(s => (s.id === mtgData.shgId ? { ...s, totalSavings: s.totalSavings + totalSavings } : s))
@@ -547,7 +552,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     addNotification('नवीन कार्य जोडले', `${newTask.marathiTitle}`, 'SYSTEM_ALERT', 'info');
   };
 
-  // Documents
+  // Documents: Upload, Replace, Verify
   const addDocument = (docData: Omit<DocumentItem, 'id' | 'uploadDate' | 'uploadedBy' | 'status'>) => {
     const newId = 'doc_' + Date.now();
     const newDoc: DocumentItem = {
@@ -558,8 +563,214 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       status: 'सत्यापित (Verified)'
     };
     setDocuments(prev => [newDoc, ...prev]);
-    addAuditLog('UPLOAD_DOC', 'कागदपत्र अपलोड', 'DOCUMENT', newId, `${docData.entityName} चे ${docData.docType} कागदपत्र जोडले.`);
+    addAuditLog('UPLOAD_DOC', 'कागदपत्र अपलोड', 'DOCUMENT', newId, `${docData.entityName} चे ${docData.docType} कागदपत्र सुरक्षित जोडले.`);
     addNotification('कागदपत्र अपलोड झाले', `${docData.title} सुरक्षित साठवले आहे.`, 'SYSTEM_ALERT', 'success');
+    speakMarathi(`${docData.entityName} यांचे कागदपत्र यशस्वीरित्या सुरक्षित अपलोड झाले.`);
+  };
+
+  const replaceDocument = (id: string, newFileUrl: string, newTitle?: string, remarks?: string) => {
+    setDocuments(prev =>
+      prev.map(d =>
+        d.id === id
+          ? {
+              ...d,
+              fileUrl: newFileUrl,
+              title: newTitle || d.title,
+              uploadDate: new Date().toISOString().split('T')[0],
+              uploadedBy: currentUser.marathiName,
+              remarks: remarks || d.remarks,
+              status: 'सत्यापित (Verified)'
+            }
+          : d
+      )
+    );
+    addAuditLog('REPLACE_DOC', 'कागदपत्र बदलले (Replace)', 'DOCUMENT', id, `कागदपत्र नवीन फाईलसह अद्ययावत केले.`);
+    addNotification('कागदपत्र अद्ययावत झाले', `कागदपत्र नवीन फाईलसह यशस्वीरित्या बदलले आहे.`, 'SYSTEM_ALERT', 'success');
+    speakMarathi(`कागदपत्र यशस्वीरित्या नवीन फाईलसह बदलले गेले.`);
+  };
+
+  const verifyDocument = (id: string, newStatus: DocumentItem['status'], remarks?: string) => {
+    setDocuments(prev =>
+      prev.map(d =>
+        d.id === id
+          ? { ...d, status: newStatus, remarks: remarks || d.remarks }
+          : d
+      )
+    );
+    addAuditLog('VERIFY_DOC', 'कागदपत्र पडताळणी', 'DOCUMENT', id, `कागदपत्र स्थिती: ${newStatus}`);
+  };
+
+  // Delete SHG (Cascades/Cleans related members and records)
+  const deleteSHG = (id: string) => {
+    const target = shgs.find(s => s.id === id);
+    const shgName = target?.marathiName || 'बचत गट';
+    setShgs(prev => prev.filter(s => s.id !== id));
+    if (selectedShgId === id) setSelectedShgId(null);
+    addAuditLog('DELETE_SHG', 'बचत गट हटवला (Delete SHG)', 'SHG', id, `${shgName} हा बचत गट सिस्टीममधून हटवण्यात आला.`);
+    addNotification('बचत गट हटवला', `${shgName} यशस्वीरित्या हटवला गेला आहे.`, 'SYSTEM_ALERT', 'warning');
+    speakMarathi(`${shgName} यशस्वीरित्या हटवण्यात आला.`);
+  };
+
+  // Delete Member
+  const deleteMember = (id: string) => {
+    const target = members.find(m => m.id === id);
+    const memberName = target?.marathiName || 'सदस्य';
+    setMembers(prev => prev.filter(m => m.id !== id));
+    if (target?.shgId) {
+      setShgs(prev =>
+        prev.map(s => (s.id === target.shgId ? { ...s, totalMembersCount: Math.max(0, s.totalMembersCount - 1) } : s))
+      );
+    }
+    if (selectedMemberId === id) setSelectedMemberId(null);
+    addAuditLog('DELETE_MEMBER', 'सदस्य नोंद हटवली (Delete Member)', 'MEMBER', id, `${memberName} यांची नोंद हटवण्यात आली.`);
+    addNotification('सदस्य नोंद हटवली', `${memberName} यांची नोंद यशस्वीरित्या हटवली आहे.`, 'SYSTEM_ALERT', 'warning');
+    speakMarathi(`${memberName} यांची नोंद हटवण्यात आली आहे.`);
+  };
+
+  // Delete Family Member
+  const deleteFamilyMember = (memberId: string, familyIndex: number) => {
+    setMembers(prev =>
+      prev.map(m => {
+        if (m.id === memberId) {
+          const updatedFamily = m.familyMembers ? [...m.familyMembers] : [];
+          const removed = updatedFamily.splice(familyIndex, 1);
+          addAuditLog('DELETE_FAMILY_MEMBER', 'कुटुंब सदस्य हटवला', 'MEMBER_FAMILY', memberId, `${removed[0]?.marathiName || 'कुटुंब सदस्य'} ची नोंद काढण्यात आली.`);
+          return { ...m, familyMembers: updatedFamily };
+        }
+        return m;
+      })
+    );
+    addNotification('कुटुंब सदस्य नोंद हटवली', `कुटुंब सदस्याची नोंद काढण्यात आली.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  // Delete Document
+  const deleteDocument = (id: string) => {
+    const target = documents.find(d => d.id === id);
+    const docTitle = target?.title || 'कागदपत्र';
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    addAuditLog('DELETE_DOCUMENT', 'कागदपत्र हटवले (Delete Document)', 'DOCUMENT', id, `${docTitle} कागदपत्र सिस्टीममधून हटवले.`);
+    addNotification('कागदपत्र हटवले', `${docTitle} सुरक्षितरीत्या हटवले गेले आहे.`, 'SYSTEM_ALERT', 'warning');
+    speakMarathi(`${docTitle} यशस्वीरित्या हटवण्यात आले.`);
+  };
+
+  // Delete Savings Record
+  const deleteSavings = (id: string) => {
+    const target = savings.find(s => s.id === id);
+    if (!target) return;
+    setSavings(prev => prev.filter(s => s.id !== id));
+    // Rollback member and SHG balance
+    setMembers(prev =>
+      prev.map(m => (m.id === target.memberId ? { ...m, totalSaved: Math.max(0, m.totalSaved - target.totalAmount) } : m))
+    );
+    setShgs(prev =>
+      prev.map(s => (s.id === target.shgId ? { ...s, totalSavings: Math.max(0, s.totalSavings - target.totalAmount) } : s))
+    );
+    addAuditLog('DELETE_SAVINGS', 'बचत पावती हटवली (Delete Savings)', 'SAVINGS', id, `${target.memberName} यांची ₹${target.totalAmount} ची पावती हटवली.`);
+    addNotification('बचत पावती हटवली', `पावती क्रमांक ${target.receiptNumber} हटवण्यात आली.`, 'SAVINGS_RECEIPT', 'warning');
+    speakMarathi(`बचत पावती यशस्वीरित्या हटवण्यात आली.`);
+  };
+
+  // Delete Loan Record
+  const deleteLoan = (id: string) => {
+    const target = loans.find(l => l.id === id);
+    if (!target) return;
+    setLoans(prev => prev.filter(l => l.id !== id));
+    // Rollback active loan on member
+    setMembers(prev =>
+      prev.map(m => (m.id === target.memberId ? { ...m, activeLoanAmount: Math.max(0, m.activeLoanAmount - target.remainingPrincipal) } : m))
+    );
+    if (target.loanType.includes('अंतर्गत')) {
+      setShgs(prev =>
+        prev.map(s => (s.id === target.shgId ? { ...s, totalInternalLoansActive: Math.max(0, s.totalInternalLoansActive - target.remainingPrincipal) } : s))
+      );
+    }
+    addAuditLog('DELETE_LOAN', 'कर्ज नोंद हटवली (Delete Loan)', 'LOAN', id, `${target.memberName} यांचे कर्ज खाते हटवण्यात आले.`);
+    addNotification('कर्ज नोंद हटवली', `${target.memberName} यांचे कर्ज खाते हटवले गेले.`, 'LOAN_DUE', 'warning');
+    speakMarathi(`कर्ज नोंद यशस्वीरित्या हटवण्यात आली.`);
+  };
+
+  // Delete Meeting
+  const deleteMeeting = (id: string) => {
+    const target = meetings.find(m => m.id === id);
+    const shgName = target?.shgName || 'मासिक सभा';
+    setMeetings(prev => prev.filter(m => m.id !== id));
+    addAuditLog('DELETE_MEETING', 'मासिक सभा नोंद हटवली (Delete Meeting)', 'MEETING', id, `${shgName} ची सभा नोंद काढण्यात आली.`);
+    addNotification('सभा नोंद हटवली', `${shgName} ची सभा नोंद हटवली.`, 'MEETING_REMINDER', 'warning');
+    speakMarathi(`मासिक सभा नोंद यशस्वीरित्या हटवण्यात आली.`);
+  };
+
+  // Delete Attendance Record from a meeting
+  const deleteAttendance = (meetingId: string, memberId: string) => {
+    setMeetings(prev =>
+      prev.map(m => {
+        if (m.id === meetingId) {
+          const updatedList = m.attendanceList.filter(a => a.memberId !== memberId);
+          const presentCount = updatedList.filter(a => a.status.includes('उपस्थित')).length;
+          return {
+            ...m,
+            attendanceList: updatedList,
+            totalAttendance: presentCount
+          };
+        }
+        return m;
+      })
+    );
+    addAuditLog('DELETE_ATTENDANCE', 'उपस्थिती नोंद हटवली', 'ATTENDANCE', meetingId, `सदस्य उपस्थिती नोंद काढण्यात आली.`);
+    addNotification('उपस्थिती नोंद काढली', `सभेतील उपस्थिती नोंद अपडेट केली.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  // Delete Field Visit
+  const deleteFieldVisit = (id: string) => {
+    const target = fieldVisits.find(v => v.id === id);
+    setFieldVisits(prev => prev.filter(v => v.id !== id));
+    addAuditLog('DELETE_FIELD_VISIT', 'क्षेत्रीय भेट नोंद हटवली', 'FIELD_VISIT', id, `${target?.villageName || ''} ची भेट नोंद काढली.`);
+    addNotification('क्षेत्रीय भेट हटवली', `भेट नोंद यशस्वीरित्या हटवली.`, 'SYSTEM_ALERT', 'warning');
+    speakMarathi(`क्षेत्रीय भेट नोंद हटवण्यात आली.`);
+  };
+
+  // Delete Business
+  const deleteBusiness = (id: string) => {
+    const target = businesses.find(b => b.id === id);
+    setBusinesses(prev => prev.filter(b => b.id !== id));
+    addAuditLog('DELETE_BUSINESS', 'उपजीविका उद्योग हटवला', 'BUSINESS', id, `${target?.businessName || ''} उद्योग नोंद काढली.`);
+    addNotification('उपजीविका नोंद हटवली', `${target?.businessName || ''} ची नोंद हटवली.`, 'SYSTEM_ALERT', 'warning');
+  };
+
+  // Delete Scheme
+  const deleteScheme = (id: string) => {
+    const target = govtSchemes.find(s => s.id === id);
+    setGovtSchemes(prev => prev.filter(s => s.id !== id));
+    addAuditLog('DELETE_SCHEME', 'शासकीय योजना हटवली', 'SCHEME', id, `${target?.nameMarathi || ''} योजना काढण्यात आली.`);
+    addNotification('योजना हटवली', `${target?.nameMarathi || ''} योजना हटवली गेली.`, 'SYSTEM_ALERT', 'warning');
+  };
+
+  // Delete Scheme Application
+  const deleteSchemeApplication = (id: string) => {
+    const target = schemeApplications.find(a => a.id === id);
+    setSchemeApplications(prev => prev.filter(a => a.id !== id));
+    addAuditLog('DELETE_SCHEME_APP', 'योजना अर्ज हटवला', 'SCHEME_APP', id, `${target?.memberName || ''} चा ${target?.schemeName || ''} अर्ज हटवला.`);
+    addNotification('योजना अर्ज हटवला', `अर्ज नोंद हटवण्यात आली.`, 'SYSTEM_ALERT', 'warning');
+  };
+
+  // Delete Training
+  const deleteTraining = (id: string) => {
+    const target = trainings.find(t => t.id === id);
+    setTrainings(prev => prev.filter(t => t.id !== id));
+    addAuditLog('DELETE_TRAINING', 'प्रशिक्षण नोंद हटवली', 'TRAINING', id, `${target?.marathiTopic || ''} सत्र हटवले.`);
+    addNotification('प्रशिक्षण नोंद हटवली', `प्रशिक्षण सत्र काढण्यात आले.`, 'SYSTEM_ALERT', 'warning');
+  };
+
+  // Delete Task
+  const deleteTask = (id: string) => {
+    const target = tasks.find(t => t.id === id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+    addAuditLog('DELETE_TASK', 'कार्य हटवले', 'TASK', id, `${target?.marathiTitle || ''} कार्य काढण्यात आले.`);
+    addNotification('कार्य हटवले', `कार्य यशस्वीरित्या हटवले.`, 'SYSTEM_ALERT', 'info');
+  };
+
+  // Delete Notification
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const markNotificationRead = (id: string) => {
@@ -607,20 +818,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addMember,
         updateMember,
         deleteMember,
+        deleteFamilyMember,
         recordSavings,
+        deleteSavings,
         disburseLoan,
         repayLoan,
+        deleteLoan,
         addMeeting,
         completeMeeting,
+        deleteMeeting,
+        deleteAttendance,
         addFieldVisit,
+        deleteFieldVisit,
         addBusiness,
+        deleteBusiness,
         applyForScheme,
+        deleteScheme,
+        deleteSchemeApplication,
         addTraining,
+        deleteTraining,
         toggleTask,
         addTask,
+        deleteTask,
         addDocument,
+        replaceDocument,
+        verifyDocument,
+        deleteDocument,
         markNotificationRead,
         clearAllNotifications,
+        deleteNotification,
         speakText,
         globalSearch,
         setGlobalSearch
@@ -638,3 +864,4 @@ export const useApp = () => {
   }
   return context;
 };
+

@@ -76,6 +76,14 @@ export type Education = 'निरक्षर (Illiterate)' | 'प्राथ�
 export type CasteCategory = 'अनुसूचित जाती (SC)' | 'अनुसूचित जमाती (ST)' | 'इतर मागासवर्गीय (OBC)' | 'खुला प्रवर्ग (General)' | 'अल्पसंख्याक (Minority)';
 export type MaritalStatus = 'विवाहित (Married)' | 'विधवा (Widow)' | 'परित्यक्ता (Divorced/Deserted)' | 'अविवाहित (Unmarried)';
 
+export interface FamilyMember {
+  name?: string;
+  marathiName: string;
+  relationship: string;
+  age: number;
+  occupation: string;
+}
+
 export interface Member {
   id: string;
   shgId: string;
@@ -99,6 +107,7 @@ export interface Member {
   familyMembersCount: number;
   annualFamilyIncome: number;
   isBPL: boolean;
+  familyMembers?: FamilyMember[];
   
   // Occupation / Livelihood
   primaryOccupation: string; // शेती, शेळीपालन, दुग्धव्यवसाय, शिवणकाम, इ.

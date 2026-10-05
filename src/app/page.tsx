@@ -1,69 +1,231 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+import { AppProvider, useApp } from '@/context/AppContext';
+import { LoginPage } from '@/components/LoginPage';
+import { RegisterPage } from '@/components/RegisterPage';
+import { Header } from '@/components/Header';
+import { BottomNav } from '@/components/BottomNav';
+import { DashboardView } from '@/components/DashboardView';
+import { SHGModule } from '@/components/SHGModule';
+import { MemberModule } from '@/components/MemberModule';
+import { SavingsModule } from '@/components/SavingsModule';
+import { LoansModule } from '@/components/LoansModule';
+import { MeetingsModule } from '@/components/MeetingsModule';
+import { FieldVisitsModule } from '@/components/FieldVisitsModule';
+import { LivelihoodModule } from '@/components/LivelihoodModule';
+import { GovtSchemesModule } from '@/components/GovtSchemesModule';
+import { TrainingModule } from '@/components/TrainingModule';
+import { TasksModule } from '@/components/TasksModule';
+import { DocumentsModule } from '@/components/DocumentsModule';
+import { ReportsModule } from '@/components/ReportsModule';
+import { AuditLogsModule } from '@/components/AuditLogsModule';
+import { VoiceAssistantModal } from '@/components/VoiceAssistantModal';
+import { QuickSavingsModal } from '@/components/QuickSavingsModal';
+import { User } from '@/types';
+import {
+  HomeIcon,
+  UsersIcon,
+  PiggyBankIcon,
+  BanknoteIcon,
+  CalendarIcon,
+  AwardIcon,
+  FileTextIcon,
+  ShieldCheckIcon,
+  CameraIcon
+} from '@/components/icons';
+
+function MainApp() {
+  const { currentUser, setCurrentUser, speakText } = useApp();
+  const [authScreen, setAuthScreen] = useState<'LOGIN' | 'REGISTER' | 'DASHBOARD'>('LOGIN');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [showVoiceModal, setShowVoiceModal] = useState<boolean>(false);
+  const [showQuickSavingsModal, setShowQuickSavingsModal] = useState<boolean>(false);
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setAuthScreen('DASHBOARD');
+    setActiveTab('dashboard');
+    speakText(`लॉगिन यशस्वी झाले. नमस्ते ${user.marathiName.split(' ')[0]}!`);
+  };
+
+  const handleRegisterSuccess = (user: User) => {
+    setCurrentUser(user);
+    setAuthScreen('DASHBOARD');
+    setActiveTab('dashboard');
+    speakText(`नोंदणी यशस्वी झाली. सखीसेतू मध्ये आपले स्वागत आहे!`);
+  };
+
+  const handleLogout = () => {
+    setAuthScreen('LOGIN');
+    setActiveTab('dashboard');
+    speakText('आपण यशस्वीरित्या लॉगआउट झाला आहात.');
+  };
+
+  // 1. Login View (Strictly without role selector per requirements)
+  if (authScreen === 'LOGIN') {
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateToRegister={() => setAuthScreen('REGISTER')}
+      />
+    );
+  }
+
+  // 2. Separate Registration View
+  if (authScreen === 'REGISTER') {
+    return (
+      <RegisterPage
+        onRegisterSuccess={handleRegisterSuccess}
+        onNavigateToLogin={() => setAuthScreen('LOGIN')}
+      />
+    );
+  }
+
+  // 3. Authenticated Dashboard with Role-based Views
+  const desktopNavItems = [
+    { id: 'dashboard', label: 'डॅशबोर्ड (Dashboard)', icon: HomeIcon },
+    { id: 'shgs', label: 'माझे बचत गट (My SHGs)', icon: UsersIcon },
+    { id: 'members', label: 'महिला सभासद (Members)', icon: UsersIcon },
+    { id: 'savings', label: 'आजची बचत (Today\'s Savings)', icon: PiggyBankIcon },
+    { id: 'loans', label: 'कर्ज व परतफेड (Loans & EMI)', icon: BanknoteIcon },
+    { id: 'meetings', label: 'सभा व उपस्थिती (Meetings)', icon: CalendarIcon },
+    { id: 'fieldVisits', label: 'क्षेत्रीय भेट GPS (Field Visits)', icon: CameraIcon },
+    { id: 'livelihood', label: 'उपजीविका व लखपती (Livelihood)', icon: AwardIcon },
+    { id: 'schemes', label: 'शासकीय योजना (Govt Schemes)', icon: AwardIcon },
+    { id: 'training', label: 'प्रशिक्षण (Training)', icon: AwardIcon },
+    { id: 'tasks', label: 'कार्ये व स्मरण (Tasks)', icon: CalendarIcon },
+    { id: 'documents', label: 'कागदपत्रे (Documents)', icon: FileTextIcon },
+    { id: 'reports', label: 'अहवाल व पासबुक (Reports)', icon: FileTextIcon },
+    { id: 'auditLogs', label: 'सुरक्षा व ऑडिट (Audit Logs)', icon: ShieldCheckIcon },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <div className="min-h-screen bg-[#f8faf7] text-gray-900 flex flex-col font-sans">
+      {/* Top Header */}
+      <Header
+        onOpenVoiceAssistant={() => setShowVoiceModal(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onLogout={handleLogout}
+      />
+
+      <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 flex-1 flex flex-col md:flex-row gap-6">
+        {/* Desktop Sidebar Navigation */}
+        <aside className="hidden md:block w-64 flex-shrink-0">
+          <div className="bg-white rounded-3xl p-3 border border-emerald-100 shadow-sm sticky top-28 space-y-1 max-h-[82vh] overflow-y-auto">
+            <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-emerald-900 border-b border-emerald-50 mb-1 flex items-center justify-between">
+              <span>विभाग (Navigation)</span>
+              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold">
+                {currentUser.role === 'CRP' ? 'समूह सखी' : currentUser.role === 'BLOCK_MANAGER' ? 'प्रखंड' : 'प्रशासक'}
+              </span>
+            </div>
+
+            {desktopNavItems.map(item => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-left transition ${
+                    isActive
+                      ? 'bg-gradient-to-r from-emerald-700 to-teal-700 text-white shadow-md shadow-emerald-800/20'
+                      : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-900'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-emerald-700'}`} />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+
+            {/* Logout Button */}
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-rose-700 hover:bg-rose-50 transition"
+              >
+                <span>🚪</span>
+                <span>लॉगआउट करा (Logout)</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content View */}
+        <main className="flex-1 min-w-0">
+          {activeTab === 'dashboard' && (
+            <DashboardView
+              setActiveTab={setActiveTab}
+              onOpenQuickSavings={() => setShowQuickSavingsModal(true)}
+              onOpenNewMeeting={() => setActiveTab('meetings')}
+              onOpenNewMember={() => setActiveTab('members')}
+              onOpenNewSHG={() => setActiveTab('shgs')}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          )}
+
+          {activeTab === 'shgs' && (
+            <SHGModule
+              onOpenNewMember={() => setActiveTab('members')}
+              onOpenQuickSavings={() => setShowQuickSavingsModal(true)}
+            />
+          )}
+
+          {activeTab === 'members' && (
+            <MemberModule
+              onOpenQuickSavings={() => setShowQuickSavingsModal(true)}
+            />
+          )}
+
+          {activeTab === 'savings' && (
+            <SavingsModule
+              onOpenQuickSavings={() => setShowQuickSavingsModal(true)}
+            />
+          )}
+
+          {activeTab === 'loans' && <LoansModule />}
+
+          {activeTab === 'meetings' && <MeetingsModule />}
+
+          {activeTab === 'fieldVisits' && <FieldVisitsModule />}
+
+          {activeTab === 'livelihood' && <LivelihoodModule />}
+
+          {activeTab === 'schemes' && <GovtSchemesModule />}
+
+          {activeTab === 'training' && <TrainingModule />}
+
+          {activeTab === 'tasks' && <TasksModule />}
+
+          {activeTab === 'documents' && <DocumentsModule />}
+
+          {activeTab === 'reports' && <ReportsModule />}
+
+          {activeTab === 'auditLogs' && <AuditLogsModule />}
+        </main>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Voice Assistant Modal */}
+      {showVoiceModal && (
+        <VoiceAssistantModal onClose={() => setShowVoiceModal(false)} />
+      )}
+
+      {/* Quick Savings Modal */}
+      {showQuickSavingsModal && (
+        <QuickSavingsModal onClose={() => setShowQuickSavingsModal(false)} />
+      )}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <AppProvider>
+      <MainApp />
+    </AppProvider>
   );
 }
