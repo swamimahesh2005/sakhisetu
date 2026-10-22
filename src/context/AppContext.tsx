@@ -551,7 +551,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         crpMarathiName: crp.marathiName,
         mobile: crp.mobile,
         email: crp.email,
-        villageName: crp.blockName || 'जळकोट (अतनूर)',
+        villageName: crp.blockName || 'अटनूर (ATNUR)',
         districtId: crp.districtId,
         districtName: crp.districtName,
         blockId: crp.blockId,
