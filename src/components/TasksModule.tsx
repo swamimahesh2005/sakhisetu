@@ -174,7 +174,7 @@ export const TasksModule: React.FC = () => {
                   <label className="block font-bold text-gray-700 mb-1">प्राधान्यता (Priority)</label>
                   <select
                     value={priority}
-                    onChange={e => setPriority(e.target.value as any)}
+                    onChange={e => setPriority(e.target.value as TaskReminder['priority'])}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                   >
                     <option value="उच्च (High)">उच्च (High)</option>

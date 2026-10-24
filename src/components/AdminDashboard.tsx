@@ -6,9 +6,6 @@ import { formatINR, downloadCSV } from '@/lib/export-helpers';
 import { BlockManagerProfile } from '@/types';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import {
-  UsersIcon,
-  PiggyBankIcon,
-  ShieldCheckIcon,
   SearchIcon,
   DownloadIcon,
   SparklesIcon,
@@ -27,7 +24,6 @@ export const AdminDashboard: React.FC = () => {
     users,
     shgs,
     members,
-    auditLogs,
     addBlockManager,
     updateBlockManager,
     toggleBlockManagerStatus,

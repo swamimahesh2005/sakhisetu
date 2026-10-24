@@ -8,8 +8,6 @@ import {
   UsersIcon,
   PlusIcon,
   SearchIcon,
-  PiggyBankIcon,
-  BanknoteIcon,
   VolumeUpIcon,
   XIcon,
   PrinterIcon,
@@ -23,7 +21,7 @@ interface SHGModuleProps {
 }
 
 export const SHGModule: React.FC<SHGModuleProps> = ({ onOpenNewMember, onOpenQuickSavings }) => {
-  const { shgs, members, villages, addSHG, updateSHG, deleteSHG, speakText, globalSearch, setGlobalSearch } = useApp();
+  const { shgs, members, villages, addSHG, deleteSHG, speakText, globalSearch, setGlobalSearch } = useApp();
 
   const [filterVillage, setFilterVillage] = useState<string>('ALL');
   const [filterGrade, setFilterGrade] = useState<string>('ALL');
@@ -512,24 +510,59 @@ export const SHGModule: React.FC<SHGModuleProps> = ({ onOpenNewMember, onOpenQui
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
                   <div>
                     <label className="block font-black text-gray-800 mb-1">IFSC कोड</label>
                     <input
                       type="text"
                       value={newIfsc}
                       onChange={e => setNewIfsc(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-black text-gray-800 mb-1">मंजूर CCL कर्ज मर्यादा (₹)</label>
+                    <label className="block font-black text-gray-800 mb-1">शाखा नाव (Branch)</label>
+                    <input
+                      type="text"
+                      value={newBranch}
+                      onChange={e => setNewBranch(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-gray-800 mb-1">मंजूर CCL कर्ज (₹)</label>
                     <input
                       type="number"
                       value={newCclLimit}
                       onChange={e => setNewCclLimit(Number(e.target.value))}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-black text-amber-900"
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-black text-amber-900 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="block font-black text-gray-800 mb-1">सभा वारंवारता (Frequency)</label>
+                    <select
+                      value={newMeetingFrequency}
+                      onChange={e => setNewMeetingFrequency(e.target.value as 'मासिक (Monthly)' | 'पाक्षिक (Fortnightly)' | 'साप्ताहिक (Weekly)')}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold"
+                    >
+                      <option value="मासिक (Monthly)">मासिक (Monthly)</option>
+                      <option value="पाक्षिक (Fortnightly)">पाक्षिक (Fortnightly)</option>
+                      <option value="साप्ताहिक (Weekly)">साप्ताहिक (Weekly)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-gray-800 mb-1">ग्रामसंघ नाव (VO/CLF Name)</label>
+                    <input
+                      type="text"
+                      value={newVoName}
+                      onChange={e => setNewVoName(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
                     />
                   </div>
                 </div>

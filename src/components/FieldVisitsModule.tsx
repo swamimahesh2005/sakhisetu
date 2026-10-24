@@ -6,12 +6,9 @@ import { FieldVisit } from '@/types';
 import {
   MapPinIcon,
   PlusIcon,
-  SearchIcon,
-  CameraIcon,
   CheckCircleIcon,
   XIcon,
   VolumeUpIcon,
-  SparklesIcon,
   TrashIcon
 } from './icons';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
@@ -232,7 +229,7 @@ export const FieldVisitsModule: React.FC = () => {
                 <label className="block font-bold text-gray-700 mb-1">भेटीचा उद्देश (Purpose) *</label>
                 <select
                   value={purpose}
-                  onChange={e => setPurpose(e.target.value as any)}
+                  onChange={e => setPurpose(e.target.value as FieldVisit['purpose'])}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                 >
                   <option value="नियमित मासिक सभा तपासणी">नियमित मासिक सभा तपासणी</option>
@@ -271,6 +268,40 @@ export const FieldVisitsModule: React.FC = () => {
                   value={observations}
                   onChange={e => setObservations(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">भेट दिनांक (Visit Date)</label>
+                  <input
+                    type="date"
+                    value={visitDate}
+                    onChange={e => setVisitDate(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">गट गुणवत्ता श्रेणी (Grade)</label>
+                  <select
+                    value={ratingGrade}
+                    onChange={e => setRatingGrade(e.target.value as FieldVisit['ratingGrade'])}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
+                  >
+                    <option value="उत्कृष्ट (Grade A)">उत्कृष्ट (Grade A)</option>
+                    <option value="मध्यम (Grade B)">मध्यम (Grade B)</option>
+                    <option value="सुधारणा हवी (Grade C)">सुधारणा हवी (Grade C)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">भेटीचे ठिकाण / पत्ता (Location Address)</label>
+                <input
+                  type="text"
+                  value={locationAddress}
+                  onChange={e => setLocationAddress(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                 />
               </div>
 

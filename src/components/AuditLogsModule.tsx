@@ -23,10 +23,19 @@ export const AuditLogsModule: React.FC = () => {
           </p>
         </div>
 
-        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          १००% सुरक्षित एन्क्रिप्टेड ऑडिट ट्रेल
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => speakText('सुरक्षा व ऑडिट ट्रेल. प्रणालीतील प्रत्येक आर्थिक व्यवहार, बदल, युझर लॉगिन, आयपी पत्ता आणि सुरक्षितता नोंदी येथे नोंदवल्या आहेत.')}
+            className="p-2 text-gray-500 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50 rounded-xl border border-gray-200 transition"
+            title="ऐका (Listen)"
+          >
+            <VolumeUpIcon className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            १००% सुरक्षित एन्क्रिप्टेड ऑडिट ट्रेल
+          </span>
+        </div>
       </div>
 
       {/* Logs Table */}

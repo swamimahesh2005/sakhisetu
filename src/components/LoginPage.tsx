@@ -111,7 +111,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         if (storedUsers) {
           usersList = [...JSON.parse(storedUsers), ...INITIAL_USERS];
         }
-      } catch (e) {
+      } catch {
         // ignore error
       }
     }
@@ -172,7 +172,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       } else {
         setErrorMessage('डेमो लॉगिन करताना अडचण आली.');
       }
-    } catch (err) {
+    } catch {
       setIsLoading(false);
       setErrorMessage('त्रुटी आली.');
     }
@@ -203,7 +203,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       } else {
         setErrorMessage('अवैध मोबाईल क्रमांक/युझरनेम किंवा पासवर्ड. कृपया पुन्हा तपासा. (Invalid credentials)');
       }
-    } catch (err) {
+    } catch {
       setIsLoading(false);
       setErrorMessage('लॉगिन करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
     }
@@ -244,7 +244,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       } else {
         setErrorMessage('अवैध OTP. कृपया पुन्हा तपासा. (Invalid OTP)');
       }
-    } catch (err) {
+    } catch {
       setIsLoading(false);
       setErrorMessage('सत्यापनात त्रुटी आली.');
     }

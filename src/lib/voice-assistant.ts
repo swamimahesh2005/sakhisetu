@@ -24,14 +24,47 @@ export function speakMarathi(text: string) {
   window.speechSynthesis.speak(utterance);
 }
 
+interface SpeechRecognitionResultItem {
+  transcript: string;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: {
+    [index: number]: SpeechRecognitionResultItem;
+  };
+}
+
+interface SpeechRecognitionEventLike {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorLike {
+  error: string;
+}
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+interface WindowWithSpeech extends Window {
+  SpeechRecognition?: new () => SpeechRecognitionInstance;
+  webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+}
+
 export function startSpeechRecognition(
   onResult: (text: string) => void,
-  onError?: (err: any) => void
+  onError?: (err: string) => void
 ): { stop: () => void } | null {
   if (typeof window === 'undefined') return null;
 
-  // @ts-ignore
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const win = window as unknown as WindowWithSpeech;
+  const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert('आपल्या ब्राउझरमध्ये व्हॉईस इनपुट सपोर्ट उपलब्ध नाही (Speech recognition is not supported in this browser). कृपया टाईप करा.');
     return null;
@@ -42,28 +75,30 @@ export function startSpeechRecognition(
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
 
-  recognition.onresult = (event: any) => {
-    const transcript = event.results[0][0].transcript;
-    onResult(transcript);
+  recognition.onresult = (event: SpeechRecognitionEventLike) => {
+    const transcript = event.results[0]?.[0]?.transcript;
+    if (transcript) {
+      onResult(transcript);
+    }
   };
 
-  recognition.onerror = (event: any) => {
+  recognition.onerror = (event: SpeechRecognitionErrorLike) => {
     console.error('Speech recognition error:', event.error);
     if (onError) onError(event.error);
   };
 
   try {
     recognition.start();
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error('Failed to start speech recognition:', err);
   }
 
   return {
     stop: () => {
       try {
         recognition.stop();
-      } catch (e) {
-        // ignore
+      } catch {
+        // ignore safely
       }
     }
   };

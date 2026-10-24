@@ -381,7 +381,7 @@ export const LoansModule: React.FC = () => {
                   <label className="block font-black text-gray-800 mb-1">कर्ज प्रकार</label>
                   <select
                     value={loanType}
-                    onChange={e => setLoanType(e.target.value as any)}
+                    onChange={e => setLoanType(e.target.value as LoanRecord['loanType'])}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
                   >
                     <option value="अंतर्गत कर्ज (Internal Loan)">अंतर्गत कर्ज (Internal Loan)</option>
@@ -393,7 +393,7 @@ export const LoansModule: React.FC = () => {
                   <label className="block font-black text-gray-800 mb-1">कर्ज हेतू (Purpose) *</label>
                   <select
                     value={purpose}
-                    onChange={e => setPurpose(e.target.value as any)}
+                    onChange={e => setPurpose(e.target.value as LoanRecord['purpose'])}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
                   >
                     <option value="शेळीपालन / पशुधन (Livestock)">शेळीपालन / पशुधन</option>

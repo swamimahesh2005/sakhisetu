@@ -7,10 +7,6 @@ import {
   FileTextIcon,
   PrinterIcon,
   DownloadIcon,
-  UsersIcon,
-  PiggyBankIcon,
-  BanknoteIcon,
-  AwardIcon,
   VolumeUpIcon
 } from './icons';
 
@@ -54,6 +50,13 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => speakText(`प्रगती अहवाल. निवडलेला अहवाल: ${selectedReport === 'PASSBOOK' ? 'बचत गट पासबुक' : selectedReport === 'MONTHLY_REGISTER' ? 'मासिक संकलन पत्रक' : 'तालुका प्रगती अहवाल'}. एकूण सभासद संख्या ${shgMembers.length} आहे.`)}
+            className="p-2.5 text-gray-600 hover:text-orange-700 bg-gray-100 hover:bg-orange-50 rounded-xl transition"
+            title="अहवाल ऐका"
+          >
+            <VolumeUpIcon className="w-4 h-4" />
+          </button>
           <button
             onClick={handleExportCSV}
             className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition"
@@ -164,6 +167,10 @@ export const ReportsModule: React.FC = () => {
                 <span className="text-gray-500 block font-bold">सक्रिय CCL कर्ज:</span>
                 <span className="font-black text-purple-800 text-sm">{formatINR(activeSHG?.cclOutstandingBalance || 0)}</span>
               </div>
+              <div>
+                <span className="text-gray-500 block font-bold">अंतर्गत कर्ज शिल्लक:</span>
+                <span className="font-black text-indigo-800 text-sm">{formatINR(shgLoans.reduce((acc, l) => acc + l.remainingPrincipal, 0))}</span>
+              </div>
             </div>
 
             <h4 className="font-extrabold text-sm text-gray-800 pt-2">बचत व जमा नोंदी (Passbook Ledger)</h4>
@@ -241,19 +248,19 @@ export const ReportsModule: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-orange-50/70 p-4 rounded-2xl border border-orange-200">
               <div>
                 <span className="text-gray-500 block font-bold">एकूण गावे:</span>
-                <span className="font-bold text-gray-900 text-sm">१८ गावे</span>
+                <span className="font-bold text-gray-900 text-sm">{blocks[0]?.totalVillages || 18} गावे</span>
               </div>
               <div>
                 <span className="text-gray-500 block font-bold">सक्रिय बचत गट:</span>
-                <span className="font-bold text-gray-900 text-sm">{shgs.length * 10} गट</span>
+                <span className="font-bold text-gray-900 text-sm">{blocks[0]?.totalSHGs || shgs.length} गट</span>
               </div>
               <div>
                 <span className="text-gray-500 block font-bold">एकूण बचत भांडवल:</span>
-                <span className="font-black text-emerald-800 text-sm">₹४२,५०,०००</span>
+                <span className="font-black text-emerald-800 text-sm">{formatINR(blocks[0]?.totalSavings || 4250000)}</span>
               </div>
               <div>
                 <span className="text-gray-500 block font-bold">एकूण CCL कर्ज वाटप:</span>
-                <span className="font-black text-purple-800 text-sm">₹१,२५,००,०००</span>
+                <span className="font-black text-purple-800 text-sm">{formatINR(blocks[0]?.totalCCLLoan || 12500000)}</span>
               </div>
             </div>
 

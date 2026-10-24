@@ -2,14 +2,11 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { GovtScheme } from '@/types';
 import {
   AwardIcon,
   PlusIcon,
-  CheckCircleIcon,
   XIcon,
   VolumeUpIcon,
-  FileTextIcon,
   TrashIcon
 } from './icons';
 import { DeleteConfirmModal } from './DeleteConfirmModal';

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { User, Role } from '@/types';
-import { INITIAL_USERS } from '@/lib/seed-data';
 
 interface RegisterPageProps {
   onRegisterSuccess: (user: User) => void;
@@ -89,7 +88,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         const customUsers = stored ? JSON.parse(stored) : [];
         customUsers.push(newUser);
         localStorage.setItem('sakhisetu_custom_users', JSON.stringify(customUsers));
-      } catch (err) {
+      } catch {
         // ignore
       }
 

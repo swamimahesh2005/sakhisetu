@@ -1,9 +1,28 @@
 import type { Metadata } from 'next';
+import { Outfit, Yantramanav } from 'next/font/google';
 import './globals.css';
 
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
+const yantramanav = Yantramanav({
+  subsets: ['devanagari', 'latin'],
+  weight: ['300', '400', '500', '700', '900'],
+  variable: '--font-yantramanav',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'SakhiSetu – महिला बचत गट व्यवस्थापन (Women SHG Management)',
-  description: 'ग्रामीण महिला स्वयंसहाय्यता बचत गट, बचत, कर्ज, मासिक सभा, उपजीविका व शासकीय योजना व्यवस्थापन प्रणाली (MSRLM / UMED).',
+  title: 'सखीसेतू (SakhiSetu) – महिला बचत गट व्यवस्थापन प्रणाली',
+  description: 'महाराष्ट्र राज्य ग्रामीण जीवनोन्नती अभियान (UMED / MSRLM) & डिजिटल भारत प्रेरित महिला स्वयंसहाय्यता बचत गट व्यवस्थापन आणि सक्षमीकरण प्लॅटफॉर्म.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -12,16 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="mr" className="h-full antialiased">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Yantramanav:wght@300;400;500;700;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-full flex flex-col font-sans bg-[#fdfbf7] text-gray-900" style={{ fontFamily: 'Yantramanav, Outfit, sans-serif' }}>
+    <html lang="mr" className={`h-full antialiased ${outfit.variable} ${yantramanav.variable}`}>
+      <body className="min-h-full flex flex-col font-sans bg-[#fdfbf7] text-gray-900" style={{ fontFamily: 'var(--font-yantramanav), var(--font-outfit), sans-serif' }}>
         {children}
       </body>
     </html>

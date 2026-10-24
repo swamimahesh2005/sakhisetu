@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { INITIAL_USERS } from '@/lib/seed-data';
-import { hashPassword } from '@/lib/auth-crypto';
-import { User } from '@/types';
+import { Role, User } from '@/types';
 
 // Helper to authenticate request from headers or bearer token
 function authenticateRequest(request: Request): { user: User | null; errorResponse?: NextResponse } {
   const userId = request.headers.get('x-user-id') || request.headers.get('authorization')?.replace('Bearer ', '');
-  const userRole = request.headers.get('x-user-role');
+  const userRole = request.headers.get('x-user-role') as Role | null;
 
   if (!userId) {
     return {
@@ -27,7 +26,7 @@ function authenticateRequest(request: Request): { user: User | null; errorRespon
           name: userId,
           marathiName: userId,
           mobile: '',
-          role: userRole as any
+          role: userRole
         }
       };
     }
@@ -43,9 +42,10 @@ function authenticateRequest(request: Request): { user: User | null; errorRespon
   return { user };
 }
 
-function sanitizeCRP(user: User) {
-  const { passwordHash, ...rest } = user;
-  return rest;
+function sanitizeCRP(user: User): Omit<User, 'passwordHash'> {
+  const userCopy = { ...user };
+  delete userCopy.passwordHash;
+  return userCopy;
 }
 
 // GET /api/crp/[id] - Access single CRP details with strict 403 check

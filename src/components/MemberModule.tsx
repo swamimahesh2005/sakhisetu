@@ -8,9 +8,6 @@ import {
   UsersIcon,
   PlusIcon,
   SearchIcon,
-  PiggyBankIcon,
-  BanknoteIcon,
-  AwardIcon,
   VolumeUpIcon,
   XIcon,
   PrinterIcon,
@@ -23,7 +20,7 @@ interface MemberModuleProps {
 }
 
 export const MemberModule: React.FC<MemberModuleProps> = ({ onOpenQuickSavings }) => {
-  const { members, shgs, addMember, updateMember, deleteMember, deleteFamilyMember, speakText, globalSearch, setGlobalSearch } = useApp();
+  const { members, shgs, addMember, deleteMember, deleteFamilyMember, speakText, globalSearch, setGlobalSearch } = useApp();
 
   const [filterSHG, setFilterSHG] = useState<string>('ALL');
   const [filterLakhpati, setFilterLakhpati] = useState<string>('ALL');
@@ -137,13 +134,23 @@ export const MemberModule: React.FC<MemberModuleProps> = ({ onOpenQuickSavings }
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white px-5 py-3 rounded-2xl font-black text-xs shadow-md shadow-emerald-700/20 flex items-center justify-center gap-2 transition"
-        >
-          <PlusIcon className="w-4 h-4" />
-          <span>+ नवीन महिला नोंदणी (Add Member)</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenQuickSavings}
+            className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-4 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition"
+            title="त्वरित बचत नोंदवा"
+          >
+            <span>💰</span>
+            <span>बचत नोंदवा</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white px-5 py-3 rounded-2xl font-black text-xs shadow-md shadow-emerald-700/20 flex items-center justify-center gap-2 transition"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>+ नवीन महिला नोंदणी (Add Member)</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -616,6 +623,112 @@ export const MemberModule: React.FC<MemberModuleProps> = ({ onOpenQuickSavings }
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">जन्म तारीख (DOB)</label>
+                  <input
+                    type="date"
+                    value={dob}
+                    onChange={e => setDob(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">वैवाहिक स्थिती</label>
+                  <select
+                    value={maritalStatus}
+                    onChange={e => setMaritalStatus(e.target.value as MaritalStatus)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-medium"
+                  >
+                    <option value="विवाहित (Married)">विवाहित (Married)</option>
+                    <option value="विधवा (Widow)">विधवा (Widow)</option>
+                    <option value="परित्यक्ता (Divorced/Deserted)">परित्यक्ता</option>
+                    <option value="अविवाहित (Unmarried)">अविवाहित (Unmarried)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">सामाजिक प्रवर्ग (Caste)</label>
+                  <select
+                    value={casteCategory}
+                    onChange={e => setCasteCategory(e.target.value as CasteCategory)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-medium"
+                  >
+                    <option value="इतर मागासवर्गीय (OBC)">इतर मागासवर्गीय (OBC)</option>
+                    <option value="अनुसूचित जाती (SC)">अनुसूचित जाती (SC)</option>
+                    <option value="अनुसूचित जमाती (ST)">अनुसूचित जमाती (ST)</option>
+                    <option value="खुला प्रवर्ग (General)">खुला प्रवर्ग (General)</option>
+                    <option value="अल्पसंख्याक (Minority)">अल्पसंख्याक (Minority)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-black text-gray-800 mb-1">रहिवासी पत्ता (Address)</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">कुटुंब सदस्य संख्या</label>
+                  <input
+                    type="number"
+                    value={familyMembersCount}
+                    onChange={e => setFamilyMembersCount(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">वार्षिक कौटुंबिक उत्पन्न (₹)</label>
+                  <input
+                    type="number"
+                    value={annualFamilyIncome}
+                    onChange={e => setAnnualFamilyIncome(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-emerald-800"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="bplCheck"
+                    checked={isBPL}
+                    onChange={e => setIsBPL(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded"
+                  />
+                  <label htmlFor="bplCheck" className="text-xs font-bold text-gray-800 cursor-pointer">दारिद्र्यरेषेखालील (BPL)</label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">शेतजमीन (एकर)</label>
+                  <input
+                    type="number"
+                    value={landHoldingAcres}
+                    onChange={e => setLandHoldingAcres(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">पशुधन संख्या</label>
+                  <input
+                    type="number"
+                    value={livestockCount}
+                    onChange={e => setLivestockCount(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-black text-gray-800 mb-1">बँकेचे नाव</label>
@@ -623,10 +736,22 @@ export const MemberModule: React.FC<MemberModuleProps> = ({ onOpenQuickSavings }
                     type="text"
                     value={bankName}
                     onChange={e => setBankName(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
                   />
                 </div>
 
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">शाखा नाव</label>
+                  <input
+                    type="text"
+                    value={branchName}
+                    onChange={e => setBranchName(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-black text-gray-800 mb-1">खाते क्रमांक</label>
                   <input
@@ -634,7 +759,18 @@ export const MemberModule: React.FC<MemberModuleProps> = ({ onOpenQuickSavings }
                     placeholder="उदा. 60199201948"
                     value={accountNo}
                     onChange={e => setAccountNo(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-gray-800 mb-1">IFSC कोड</label>
+                  <input
+                    type="text"
+                    placeholder="MAHB0000452"
+                    value={ifscCode}
+                    onChange={e => setIfscCode(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-mono text-xs"
                   />
                 </div>
               </div>

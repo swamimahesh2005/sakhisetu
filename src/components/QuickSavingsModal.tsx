@@ -242,13 +242,23 @@ export const QuickSavingsModal: React.FC<QuickSavingsModalProps> = ({ onClose })
                   <label className="block font-bold text-gray-700 mb-1">भरणा प्रकार (Payment Mode)</label>
                   <select
                     value={paymentMode}
-                    onChange={e => setPaymentMode(e.target.value as any)}
+                    onChange={e => setPaymentMode(e.target.value as 'रोख (Cash)' | 'UPI / ऑनलाईन (Online)')}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                   >
                     <option value="रोख (Cash)">रोख (Cash)</option>
                     <option value="UPI / ऑनलाईन (Online)">UPI / ऑनलाईन (Online)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">नोंद / शेरा (Notes)</label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-xs"
+                />
               </div>
 
               {/* Total Calculation Bar */}

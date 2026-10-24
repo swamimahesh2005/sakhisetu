@@ -5,10 +5,7 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { CRPPerformanceSummary } from '@/types';
 import {
   UsersIcon,
-  PiggyBankIcon,
-  BanknoteIcon,
   CalendarIcon,
-  CameraIcon,
   FileTextIcon,
   SearchIcon,
   DownloadIcon,
@@ -31,7 +28,6 @@ export const BlockManagerDashboard: React.FC<BlockManagerDashboardProps> = ({ se
     filteredSHGs,
     filteredMembers,
     filteredMeetings,
-    filteredFieldVisits,
     filteredTasks,
     addCRP,
     updateCRP,
@@ -281,8 +277,10 @@ export const BlockManagerDashboard: React.FC<BlockManagerDashboardProps> = ({ se
 
       {/* 4 Primary Required Cards for Block Manager */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Total CRPs */}
-        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition">
+        <div
+          onClick={() => setActiveTab?.('crpPerformance')}
+          className="bg-white p-4 sm:p-5 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition cursor-pointer"
+        >
           <div className="flex items-center justify-between text-gray-500">
             <span className="text-xs font-black uppercase text-emerald-900">नियुक्त समूह सखी (Assigned CRPs)</span>
             <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
@@ -988,7 +986,7 @@ export const BlockManagerDashboard: React.FC<BlockManagerDashboardProps> = ({ se
               <span className="text-gray-500 font-bold">कालावधी:</span>
               <select
                 value={reportPeriod}
-                onChange={e => setReportPeriod(e.target.value as any)}
+                onChange={e => setReportPeriod(e.target.value as 'DAILY' | 'WEEKLY' | 'MONTHLY')}
                 className="py-1 px-2.5 bg-white border border-gray-300 rounded-lg text-xs font-bold"
               >
                 <option value="DAILY">दैनिक (Daily)</option>

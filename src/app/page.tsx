@@ -34,8 +34,7 @@ import {
   AwardIcon,
   FileTextIcon,
   ShieldCheckIcon,
-  CameraIcon,
-  MapPinIcon
+  CameraIcon
 } from '@/components/icons';
 
 function MainApp() {

@@ -8,21 +8,17 @@ import { startSpeechRecognition } from '@/lib/voice-assistant';
 import {
   CalendarIcon,
   PlusIcon,
-  SearchIcon,
   CheckCircleIcon,
   XIcon,
   MicIcon,
-  CameraIcon,
   VolumeUpIcon,
   PrinterIcon,
-  UsersIcon,
-  FileTextIcon,
   TrashIcon
 } from './icons';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 export const MeetingsModule: React.FC = () => {
-  const { meetings, shgs, members, addMeeting, deleteMeeting, deleteAttendance, speakText, isOnline } = useApp();
+  const { meetings, shgs, members, addMeeting, deleteMeeting, deleteAttendance, speakText } = useApp();
 
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [activeMeetingDetail, setActiveMeetingDetail] = useState<Meeting | null>(null);
@@ -390,7 +386,17 @@ export const MeetingsModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">सभेची वेळ (Time)</label>
+                  <input
+                    type="text"
+                    value={meetingTime}
+                    onChange={e => setMeetingTime(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl"
+                  />
+                </div>
+
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">सभेचे ठिकाण (Venue)</label>
                   <input
@@ -437,7 +443,7 @@ export const MeetingsModule: React.FC = () => {
                             onChange={e => {
                               setAttendanceMap(prev => ({
                                 ...prev,
-                                [m.id]: { ...current, status: e.target.value as any }
+                                [m.id]: { ...current, status: e.target.value as AttendanceRecord['status'] }
                               }));
                             }}
                             className="p-1.5 bg-white border border-gray-300 rounded-xl text-xs font-bold"

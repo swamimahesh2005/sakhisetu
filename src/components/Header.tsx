@@ -6,7 +6,6 @@ import {
   BellIcon,
   MicIcon,
   SearchIcon,
-  VolumeUpIcon,
 } from './icons';
 
 interface HeaderProps {
@@ -99,6 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             className="flex items-center gap-3 cursor-pointer select-none"
             onClick={() => setActiveTab('dashboard')}
+            title={`सध्याचा विभाग: ${activeTab}`}
           >
             <div className="w-11 h-11 rounded-2xl bg-white text-emerald-800 flex items-center justify-center font-black text-2xl shadow-md border-2 border-emerald-200">
               स

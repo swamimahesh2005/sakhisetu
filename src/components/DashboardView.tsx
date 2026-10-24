@@ -8,14 +8,11 @@ import {
   PiggyBankIcon,
   BanknoteIcon,
   CalendarIcon,
-  MapPinIcon,
   AwardIcon,
   SparklesIcon,
   VolumeUpIcon,
   ArrowRightIcon,
   CameraIcon,
-  FileTextIcon,
-  ShieldCheckIcon,
 } from './icons';
 
 interface DashboardViewProps {
@@ -287,13 +284,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="w-2.5 h-5 bg-emerald-600 rounded-full"></span>
               माझे स्वयंसहाय्यता गट (My SHGs Overview)
             </h3>
-            <button
-              onClick={() => setActiveTab('shgs')}
-              className="text-xs font-black text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
-            >
-              <span>सर्व पहा (View All)</span>
-              <ArrowRightIcon className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenNewSHG}
+                className="text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 px-3 py-1 rounded-xl flex items-center gap-1 transition"
+              >
+                <span>+ नवीन गट</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('shgs')}
+                className="text-xs font-black text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+              >
+                <span>सर्व पहा (View All)</span>
+                <ArrowRightIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

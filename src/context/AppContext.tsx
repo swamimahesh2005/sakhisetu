@@ -209,7 +209,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
 
-  const [districts, setDistricts] = useState<District[]>(INITIAL_DISTRICTS);
+  const [districts] = useState<District[]>(INITIAL_DISTRICTS);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [blockManagers, setBlockManagers] = useState<BlockManagerProfile[]>(INITIAL_BLOCK_MANAGERS);
   const [loginSessions, setLoginSessions] = useState<LoginSession[]>([
@@ -235,8 +235,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   ]);
 
-  const [blocks, setBlocks] = useState<Block[]>(INITIAL_BLOCKS);
-  const [villages, setVillages] = useState<Village[]>(INITIAL_VILLAGES);
+  const [blocks] = useState<Block[]>(INITIAL_BLOCKS);
+  const [villages] = useState<Village[]>(INITIAL_VILLAGES);
   const [shgs, setShgs] = useState<SHG[]>(INITIAL_SHGS);
   const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
   const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCUMENTS);
@@ -263,25 +263,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.shgs?.length) setShgs(parsed.shgs);
-          if (parsed.members?.length) setMembers(parsed.members);
-          if (parsed.savings?.length) setSavings(parsed.savings);
-          if (parsed.loans?.length) setLoans(parsed.loans);
-          if (parsed.meetings?.length) setMeetings(parsed.meetings);
-          if (parsed.fieldVisits?.length) setFieldVisits(parsed.fieldVisits);
-          if (parsed.businesses?.length) setBusinesses(parsed.businesses);
-          if (parsed.tasks?.length) setTasks(parsed.tasks);
-          if (parsed.documents?.length) setDocuments(parsed.documents);
-          if (parsed.schemeApplications?.length) setSchemeApplications(parsed.schemeApplications);
-          if (parsed.notifications?.length) setNotifications(parsed.notifications);
-          if (parsed.auditLogs?.length) setAuditLogs(parsed.auditLogs);
-          if (parsed.blockManagers?.length) setBlockManagers(parsed.blockManagers);
-          if (parsed.users?.length) setUsers(parsed.users);
+          React.startTransition(() => {
+            if (parsed.shgs?.length) setShgs(parsed.shgs);
+            if (parsed.members?.length) setMembers(parsed.members);
+            if (parsed.savings?.length) setSavings(parsed.savings);
+            if (parsed.loans?.length) setLoans(parsed.loans);
+            if (parsed.meetings?.length) setMeetings(parsed.meetings);
+            if (parsed.fieldVisits?.length) setFieldVisits(parsed.fieldVisits);
+            if (parsed.businesses?.length) setBusinesses(parsed.businesses);
+            if (parsed.tasks?.length) setTasks(parsed.tasks);
+            if (parsed.documents?.length) setDocuments(parsed.documents);
+            if (parsed.schemeApplications?.length) setSchemeApplications(parsed.schemeApplications);
+            if (parsed.notifications?.length) setNotifications(parsed.notifications);
+            if (parsed.auditLogs?.length) setAuditLogs(parsed.auditLogs);
+            if (parsed.blockManagers?.length) setBlockManagers(parsed.blockManagers);
+            if (parsed.users?.length) setUsers(parsed.users);
+            setIsLoaded(true);
+          });
+          return;
         }
       } catch (err) {
         console.error('Failed to load local storage state:', err);
       }
-      setIsLoaded(true);
+      React.startTransition(() => {
+        setIsLoaded(true);
+      });
     }
   }, []);
 
@@ -649,9 +655,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const safeUpdates = { ...updates };
-    delete (safeUpdates as any).role;
-    delete (safeUpdates as any).passwordHash;
+    const safeUpdates: Partial<User> = { ...updates };
+    delete safeUpdates.role;
+    delete safeUpdates.passwordHash;
 
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...safeUpdates } : u));
     addAuditLog('UPDATE_CRP', 'समूह सखी माहिती अद्ययावत', 'CRP', userId, `${updates.marathiName || targetCRP.marathiName} यांची माहिती अद्ययावत केली.`);

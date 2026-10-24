@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { TrainingRecord } from '@/types';
-import { AwardIcon, PlusIcon, CheckCircleIcon, XIcon, VolumeUpIcon, TrashIcon } from './icons';
+import { AwardIcon, PlusIcon, XIcon, VolumeUpIcon, TrashIcon } from './icons';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 export const TrainingModule: React.FC = () => {
@@ -154,7 +154,7 @@ export const TrainingModule: React.FC = () => {
                 <label className="block font-bold text-gray-700 mb-1">प्रवर्ग (Category)</label>
                 <select
                   value={category}
-                  onChange={e => setCategory(e.target.value as any)}
+                  onChange={e => setCategory(e.target.value as TrainingRecord['category'])}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                 >
                   <option value="वित्तीय साक्षरता व डिजिटल बँकिंग">वित्तीय साक्षरता व डिजिटल बँकिंग</option>
@@ -167,7 +167,7 @@ export const TrainingModule: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">प्रशिक्षकाचे नाव</label>
+                  <label className="block font-bold text-gray-700 mb-1">प्रशिक्षकाचे नाव (Trainer)</label>
                   <input
                     type="text"
                     value={trainerName}
@@ -183,6 +183,28 @@ export const TrainingModule: React.FC = () => {
                     value={participantCount}
                     onChange={e => setParticipantCount(Number(e.target.value))}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-teal-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">प्रशिक्षण ठिकाण (Location)</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={e => setLocation(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">एकूण तास (Duration Hours)</label>
+                  <input
+                    type="number"
+                    value={totalHours}
+                    onChange={e => setTotalHours(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold"
                   />
                 </div>
               </div>

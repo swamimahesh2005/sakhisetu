@@ -1,5 +1,3 @@
-import { SHG, Member, SavingsRecord, LoanRecord, Meeting } from '@/types';
-
 // CSV Export Helper
 export function downloadCSV(filename: string, headers: string[], rows: (string | number)[][]) {
   const csvContent =

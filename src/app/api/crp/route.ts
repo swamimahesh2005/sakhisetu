@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { INITIAL_USERS } from '@/lib/seed-data';
 import { hashPassword } from '@/lib/auth-crypto';
-import { User } from '@/types';
+import { Role, User } from '@/types';
 
 // Helper to authenticate request from headers or bearer token
 function authenticateRequest(request: Request): { user: User | null; errorResponse?: NextResponse } {
   const userId = request.headers.get('x-user-id') || request.headers.get('authorization')?.replace('Bearer ', '');
-  const userRole = request.headers.get('x-user-role');
+  const userRole = request.headers.get('x-user-role') as Role | null;
 
   if (!userId) {
     return {
@@ -29,7 +29,7 @@ function authenticateRequest(request: Request): { user: User | null; errorRespon
           name: userId,
           marathiName: userId,
           mobile: '',
-          role: userRole as any
+          role: userRole
         }
       };
     }
@@ -46,9 +46,10 @@ function authenticateRequest(request: Request): { user: User | null; errorRespon
 }
 
 // Sanitize user object to never leak passwords
-function sanitizeCRP(user: User) {
-  const { passwordHash, ...rest } = user;
-  return rest;
+function sanitizeCRP(user: User): Omit<User, 'passwordHash'> {
+  const userCopy = { ...user };
+  delete userCopy.passwordHash;
+  return userCopy;
 }
 
 // GET /api/crp - List CRPs with strict role-based isolation
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       blockId: user.blockId || 'jalkot',
       blockName: user.blockName || 'जळकोट (लातूर)',
       blockManagerId: user.role === 'BLOCK_MANAGER' ? user.id : undefined,
-      assignedVillageIds: ['vlg_atnur'],
+      assignedVillageIds: villageName ? [`vlg_${encodeURIComponent(villageName)}`] : ['vlg_atnur'],
       avatar: '👩🏽‍💼',
       status: status || 'ACTIVE',
       createdAt: new Date().toISOString()
@@ -145,9 +146,10 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'सर्व्हर त्रुटी';
     return NextResponse.json(
-      { error: err.message || 'सर्व्हर त्रुटी' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

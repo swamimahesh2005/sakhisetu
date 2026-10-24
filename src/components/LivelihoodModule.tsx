@@ -7,7 +7,6 @@ import { formatINR } from '@/lib/export-helpers';
 import {
   AwardIcon,
   PlusIcon,
-  SearchIcon,
   CheckCircleIcon,
   XIcon,
   VolumeUpIcon,
@@ -208,7 +207,7 @@ export const LivelihoodModule: React.FC = () => {
                 <label className="block font-bold text-gray-700 mb-1">३. उद्योग प्रवर्ग (Category)</label>
                 <select
                   value={category}
-                  onChange={e => setCategory(e.target.value as any)}
+                  onChange={e => setCategory(e.target.value as BusinessEnterprise['category'])}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                 >
                   <option value="शेतीपूरक / पशुपालन">शेतीपूरक / पशुपालन (शेळी, गाय, कुक्कुटपालन)</option>
@@ -221,7 +220,17 @@ export const LivelihoodModule: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">मासिक उत्पन्न/नफा (₹ Profit) *</label>
+                  <label className="block font-bold text-gray-700 mb-1">मासिक उलाढाल (₹ Revenue)</label>
+                  <input
+                    type="number"
+                    value={monthlyRevenue}
+                    onChange={e => setMonthlyRevenue(Number(e.target.value))}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">मासिक निव्वळ नफा (₹ Profit) *</label>
                   <input
                     type="number"
                     value={monthlyNetProfit}
@@ -229,7 +238,9 @@ export const LivelihoodModule: React.FC = () => {
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-extrabold text-emerald-800"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">वापरलेले बचत गट कर्ज (₹)</label>
                   <input
@@ -237,6 +248,16 @@ export const LivelihoodModule: React.FC = () => {
                     value={shgLoanAmountUsed}
                     onChange={e => setShgLoanAmountUsed(Number(e.target.value))}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">विक्री मार्ग (Market Channel)</label>
+                  <input
+                    type="text"
+                    value={marketChannels}
+                    onChange={e => setMarketChannels(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                   />
                 </div>
               </div>

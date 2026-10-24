@@ -288,6 +288,16 @@ export const DocumentsModule: React.FC = () => {
                   <VolumeUpIcon className="w-4 h-4" />
                 </button>
 
+                {doc.status !== 'सत्यापित (Verified)' && (
+                  <button
+                    onClick={() => verifyDocument(doc.id, 'सत्यापित (Verified)')}
+                    className="p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition"
+                    title="कागदपत्र त्वरित सत्यापित करा"
+                  >
+                    <CheckCircleIcon className="w-4 h-4" />
+                  </button>
+                )}
+
                 <button
                   onClick={() => setSelectedDocForPreview(doc)}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 rounded-xl font-black text-xs shadow-sm transition text-center"
@@ -443,7 +453,7 @@ export const DocumentsModule: React.FC = () => {
                 </label>
                 <select
                   value={docType}
-                  onChange={e => setDocType(e.target.value as any)}
+                  onChange={e => setDocType(e.target.value as DocumentItem['docType'])}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-900"
                 >
                   <option value="आधार कार्ड (Aadhar Card)">आधार कार्ड (Aadhaar Card)</option>
